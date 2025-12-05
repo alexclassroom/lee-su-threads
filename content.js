@@ -14,6 +14,9 @@
   const FETCH_DELAY_MS = 800; // Delay between auto-fetches to avoid rate limiting
   const INITIAL_DELAY_MS = 2000; // Wait for bulk-route-definitions to load
   const RATE_LIMIT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown
+  const MAX_QUEUE_SIZE = 5; // Maximum number of posts in queue
+  const VISIBILITY_DELAY_MS = 500; // How long a post must be visible before queuing
+  const pendingVisibility = new Map(); // Track posts waiting to be queued
 
   // Inject the network interceptor script
   function injectScript() {
@@ -47,6 +50,16 @@
     console.warn('[Threads Extractor] Rate limited! Pausing auto-fetch for 5 minutes.');
     rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
     showRateLimitToast();
+  });
+
+  // Listen for new user ID discoveries from injected script and persist them
+  window.addEventListener('message', (event) => {
+    if (event.data?.type === 'threads-new-user-ids') {
+      const newUserIds = event.data.data;
+      if (newUserIds && Object.keys(newUserIds).length > 0) {
+        chrome.runtime.sendMessage({ type: 'STORE_USER_IDS', data: newUserIds });
+      }
+    }
   });
 
   // Show rate limit toast notification
@@ -245,6 +258,7 @@
       }
 
       const { username, btn } = fetchQueue.shift();
+      console.log(`[Threads Extractor] Processing @${username}, queue length: ${fetchQueue.length}`);
 
       // Skip if already fetched while in queue
       if (profileCache.has(username)) {
@@ -268,11 +282,29 @@
 
   // Queue a profile for auto-fetch
   function queueAutoFetch(username, btn) {
-    // Don't queue if already cached or already in queue
+    // Don't queue if already cached
     if (profileCache.has(username)) return;
-    if (fetchQueue.some(item => item.username === username)) return;
 
-    fetchQueue.push({ username, btn });
+    // Check if already in queue
+    const existingIndex = fetchQueue.findIndex(item => item.username === username);
+    if (existingIndex !== -1) {
+      // Already in queue - move to front (prioritize recently visible)
+      const existing = fetchQueue.splice(existingIndex, 1)[0];
+      fetchQueue.unshift(existing);
+      return;
+    }
+
+    // Add to front of queue (newest visible posts get priority)
+    fetchQueue.unshift({ username, btn });
+
+    // Trim queue if it exceeds max size (remove oldest items from the back)
+    while (fetchQueue.length > MAX_QUEUE_SIZE) {
+      const removed = fetchQueue.pop();
+      // Re-observe removed items so they can be re-queued if scrolled back
+      if (removed && removed.btn) {
+        visibilityObserver.observe(removed.btn);
+      }
+    }
 
     // Only start processing if ready (initial delay passed)
     if (autoFetchReady) {
@@ -283,14 +315,29 @@
   // Intersection Observer for auto-fetching visible posts
   const visibilityObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
+      const btn = entry.target;
+      const username = btn.getAttribute('data-username');
+      if (!username) return;
+
       if (entry.isIntersecting) {
-        const btn = entry.target;
-        const username = btn.getAttribute('data-username');
-        if (username && !profileCache.has(username)) {
-          queueAutoFetch(username, btn);
+        // Post entered viewport - start delay timer
+        if (!pendingVisibility.has(username) && !profileCache.has(username)) {
+          const timeoutId = setTimeout(() => {
+            // Still visible after delay? Queue it
+            if (pendingVisibility.has(username)) {
+              pendingVisibility.delete(username);
+              queueAutoFetch(username, btn);
+              visibilityObserver.unobserve(btn);
+            }
+          }, VISIBILITY_DELAY_MS);
+          pendingVisibility.set(username, timeoutId);
         }
-        // Stop observing once queued
-        visibilityObserver.unobserve(btn);
+      } else {
+        // Post left viewport - cancel pending timer
+        if (pendingVisibility.has(username)) {
+          clearTimeout(pendingVisibility.get(username));
+          pendingVisibility.delete(username);
+        }
       }
     });
   }, { threshold: 0.1 });
@@ -513,6 +560,19 @@
         for (const [username, data] of Object.entries(cachedProfiles)) {
           profileCache.set(username, data);
         }
+      }
+    });
+
+    // Load cached user IDs and pass to injected script
+    chrome.runtime.sendMessage({ type: 'GET_USER_ID_CACHE' }, (cachedUserIds) => {
+      if (cachedUserIds && Object.keys(cachedUserIds).length > 0) {
+        const userIdMap = {};
+        for (const [username, data] of Object.entries(cachedUserIds)) {
+          userIdMap[username] = data.userId;
+        }
+        console.log(`[Threads Extractor] Loaded ${Object.keys(userIdMap).length} cached user IDs`);
+        // Pass to injected script
+        window.postMessage({ type: 'threads-load-userid-cache', data: userIdMap }, '*');
       }
     });
 

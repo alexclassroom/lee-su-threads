@@ -64,7 +64,6 @@
   function logResponse(type, url, responseText) {
     console.group(`%c[Threads Extractor] ${type} Response Captured`, 'color: #764ba2; font-weight: bold;');
     console.log('%cURL:', 'color: #10b981; font-weight: bold;', url);
-    console.log('%cResponse Length:', 'color: #10b981; font-weight: bold;', responseText?.length || 0);
     console.log('%cResponse Preview:', 'color: #10b981; font-weight: bold;', responseText?.substring(0, 500));
     console.groupEnd();
   }
@@ -102,6 +101,50 @@
   // ========== USER ID MAPPING ==========
   const userIdMap = new Map();
   window.__threadsUserIdMap = userIdMap;
+  let pendingNewUserIds = {}; // Buffer for new discoveries to broadcast
+
+  // Listen for cached user IDs from content script
+  window.addEventListener('message', (event) => {
+    if (event.data?.type === 'threads-load-userid-cache') {
+      const cachedUserIds = event.data.data;
+      let loadedCount = 0;
+      for (const [username, userId] of Object.entries(cachedUserIds)) {
+        if (!userIdMap.has(username)) {
+          userIdMap.set(username, userId);
+          loadedCount++;
+        }
+      }
+      if (loadedCount > 0) {
+        console.log(`%c[Threads Extractor] Loaded ${loadedCount} user IDs from cache`, 'color: #22c55e; font-weight: bold;');
+      }
+    }
+  });
+
+  // Broadcast new user IDs to content script (debounced)
+  let broadcastTimeout = null;
+  function broadcastNewUserIds() {
+    if (broadcastTimeout) clearTimeout(broadcastTimeout);
+    broadcastTimeout = setTimeout(() => {
+      if (Object.keys(pendingNewUserIds).length > 0) {
+        window.postMessage({ type: 'threads-new-user-ids', data: pendingNewUserIds }, '*');
+        pendingNewUserIds = {};
+      }
+    }, 1000); // Debounce 1 second
+  }
+
+  // Helper to add user ID and queue for persistence
+  function addUserId(username, userId, source = '') {
+    if (!userIdMap.has(username)) {
+      userIdMap.set(username, userId);
+      pendingNewUserIds[username] = userId;
+      broadcastNewUserIds();
+      if (source) {
+        console.log(`%c[Threads Extractor] Found user (${source}): @${username} -> ${userId}`, 'color: #f59e0b;');
+      }
+      return true;
+    }
+    return false;
+  }
 
   function extractUserIds(obj, source = 'unknown') {
     if (!obj || typeof obj !== 'object') return;
@@ -111,10 +154,7 @@
       const userId = String(obj.id);
       const username = String(obj.username);
       if (userId.match(/^\d+$/) && username.match(/^[\w.]+$/)) {
-        if (!userIdMap.has(username)) {
-          userIdMap.set(username, userId);
-          console.log(`%c[Threads Extractor] Found user: @${username} -> ${userId}`, 'color: #f59e0b;');
-        }
+        addUserId(username, userId, 'id');
       }
     }
 
@@ -123,10 +163,7 @@
       const userId = String(obj.pk);
       const username = String(obj.username);
       if (userId.match(/^\d+$/) && username.match(/^[\w.]+$/)) {
-        if (!userIdMap.has(username)) {
-          userIdMap.set(username, userId);
-          console.log(`%c[Threads Extractor] Found user (pk): @${username} -> ${userId}`, 'color: #f59e0b;');
-        }
+        addUserId(username, userId, 'pk');
       }
     }
 
@@ -136,10 +173,7 @@
       const userId = String(user.pk || user.id || '');
       const username = String(user.username || '');
       if (userId.match(/^\d+$/) && username.match(/^[\w.]+$/)) {
-        if (!userIdMap.has(username)) {
-          userIdMap.set(username, userId);
-          console.log(`%c[Threads Extractor] Found user (nested): @${username} -> ${userId}`, 'color: #f59e0b;');
-        }
+        addUserId(username, userId, 'nested');
       }
     }
 
@@ -320,9 +354,8 @@
                   const username = usernameMatch[1];
                   const userId = routeData.result?.exports?.rootView?.props?.user_id
                               || routeData.result?.exports?.hostableView?.props?.user_id;
-                  if (userId && !userIdMap.has(username)) {
-                    userIdMap.set(username, String(userId));
-                    console.log(`%c[Threads Extractor] Found user (route): @${username} -> ${userId}`, 'color: #22c55e;');
+                  if (userId) {
+                    addUserId(username, String(userId), 'route');
                   }
                 }
               }
@@ -411,9 +444,8 @@
                 const username = usernameMatch[1];
                 const userId = routeData.result?.exports?.rootView?.props?.user_id
                             || routeData.result?.exports?.hostableView?.props?.user_id;
-                if (userId && !userIdMap.has(username)) {
-                  userIdMap.set(username, String(userId));
-                  console.log(`%c[Threads Extractor] Found user (route): @${username} -> ${userId}`, 'color: #22c55e;');
+                if (userId) {
+                  addUserId(username, String(userId), 'route-xhr');
                 }
               }
             }
@@ -491,7 +523,9 @@
     params.append('__d', sessionTokens.__d || 'www');
 
     console.log('[Threads Extractor] Fetching profile info for user ID:', targetUserId);
-    console.log('[Threads Extractor] Using session tokens:', sessionTokens);
+    if (!sessionTokens.fb_dtsg) {
+      console.warn('[Threads Extractor] Warning: fb_dtsg token missing, request may fail');
+    }
 
     try {
       const response = await originalFetch(url, {
@@ -501,8 +535,6 @@
         credentials: 'include'
       });
 
-      console.log('[Threads Extractor] Response status:', response.status);
-
       // Check for rate limiting
       if (response.status === 429) {
         console.warn('[Threads Extractor] ⚠️ Rate limited (429)! Notifying content script...');
@@ -511,7 +543,6 @@
       }
 
       const text = await response.text();
-      console.log('[Threads Extractor] Response length:', text.length);
 
       const profileInfo = parseProfileResponse(text);
       console.log('[Threads Extractor] Parsed profile info:', profileInfo);
@@ -656,10 +687,7 @@
               const userIndex = userMatch.index;
               const username = userMatch[1];
               if (Math.abs(userIndex - pkIndex) < 500) {
-                if (!userIdMap.has(username)) {
-                  userIdMap.set(username, pk);
-                  console.log(`%c[Threads Extractor] Found user (regex): @${username} -> ${pk}`, 'color: #f59e0b;');
-                }
+                addUserId(username, pk, 'regex');
                 break;
               }
             }
@@ -682,9 +710,8 @@
           for (const userMatch of usernameMatches) {
             const username = userMatch[1];
             const userIndex = userMatch.index;
-            if (Math.abs(userIndex - pkIndex) < 500 && !userIdMap.has(username)) {
-              userIdMap.set(username, pk);
-              console.log(`%c[Threads Extractor] Found user (inline): @${username} -> ${pk}`, 'color: #f59e0b;');
+            if (Math.abs(userIndex - pkIndex) < 500) {
+              addUserId(username, pk, 'inline');
               break;
             }
           }

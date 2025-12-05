@@ -65,7 +65,7 @@ browserAPI.runtime.onMessage.addListener(handleAsyncMessage);
 // Clean up old cache entries on startup
 browserAPI.runtime.onStartup.addListener(() => {
   const now = Date.now();
-  const profileMaxAge = 24 * 60 * 60 * 1000; // 24 hours for profiles
+  const profileMaxAge = 72 * 60 * 60 * 1000; // 72 hours for profiles
 
   // Clean profile cache
   browserAPI.storage.local.get(['profileCache']).then((result) => {

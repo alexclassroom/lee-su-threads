@@ -1,0 +1,74 @@
+{
+  "extName": {
+    "message": "Lee-Su-Threads"
+  },
+  "extDescription": {
+    "message": "Automatically displays location info for Threads post authors"
+  },
+  "noLocation": {
+    "message": "No location"
+  },
+  "popupTitle": {
+    "message": "Threads Location Viewer"
+  },
+  "popupSubtitle": {
+    "message": "View location info from your feed"
+  },
+  "profiles": {
+    "message": "Profiles"
+  },
+  "thisSession": {
+    "message": "This Session"
+  },
+  "exportJson": {
+    "message": "Export as JSON"
+  },
+  "copyClipboard": {
+    "message": "Copy to Clipboard"
+  },
+  "clearCache": {
+    "message": "Clear Cache"
+  },
+  "emptyState": {
+    "message": "No profiles extracted yet.\nBrowse Threads to capture profile info."
+  },
+  "exportSuccess": {
+    "message": "Exported successfully!"
+  },
+  "copySuccess": {
+    "message": "Copied to clipboard!"
+  },
+  "copyFailed": {
+    "message": "Failed to copy"
+  },
+  "cacheCleared": {
+    "message": "Cache cleared!"
+  },
+  "confirmClear": {
+    "message": "Are you sure you want to clear all cached profiles?"
+  },
+  "rateLimitWarning": {
+    "message": "⚠️ Too many location queries. Rate limited by Threads. Auto-fetch paused for 30 minutes. Click the button to try manually if needed."
+  },
+  "rateLimitResume": {
+    "message": "Resume auto-fetch"
+  },
+  "joined": {
+    "message": "Joined"
+  },
+  "autoQuery": {
+    "message": "Auto-query"
+  },
+  "filterPlaceholder": {
+    "message": "Filter by location..."
+  },
+  "exportTitle": {
+    "message": "Export JSON"
+  },
+  "copyTitle": {
+    "message": "Copy"
+  },
+  "clearTitle": {
+    "message": "Clear cache"
+  }
+}

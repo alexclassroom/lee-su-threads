@@ -28,6 +28,7 @@ FILES=(
   "popup.js"
   "styles.css"
   "icons"
+  "_locales"
 )
 
 # Create a temporary directory for building

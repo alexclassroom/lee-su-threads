@@ -5,23 +5,69 @@ const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 document.addEventListener('DOMContentLoaded', () => {
   const profileCountEl = document.getElementById('profileCount');
-  const sessionCountEl = document.getElementById('sessionCount');
   const profileListEl = document.getElementById('profileList');
   const exportBtn = document.getElementById('exportBtn');
   const copyBtn = document.getElementById('copyBtn');
   const clearBtn = document.getElementById('clearBtn');
+  const autoQueryToggle = document.getElementById('autoQueryToggle');
+  const locationFilter = document.getElementById('locationFilter');
 
   let profiles = {};
+  let filterText = '';
+
+  // Load and handle auto-query setting
+  browserAPI.storage.local.get(['autoQueryEnabled']).then((result) => {
+    // Default to true if not set
+    const enabled = result.autoQueryEnabled !== false;
+    autoQueryToggle.checked = enabled;
+  });
+
+  autoQueryToggle.addEventListener('change', () => {
+    const enabled = autoQueryToggle.checked;
+    browserAPI.storage.local.set({ autoQueryEnabled: enabled });
+    // Notify content script
+    browserAPI.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      if (tabs[0]?.id) {
+        browserAPI.tabs.sendMessage(tabs[0].id, { type: 'AUTO_QUERY_CHANGED', enabled });
+      }
+    });
+  });
+
+  // Localize UI elements
+  function localizeUI() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const msg = browserAPI.i18n.getMessage(el.dataset.i18n);
+      if (msg) {
+        el.textContent = msg;
+      }
+    });
+    // Localize title attributes
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      const msg = browserAPI.i18n.getMessage(el.dataset.i18nTitle);
+      if (msg) {
+        el.title = msg;
+      }
+    });
+  }
+  localizeUI();
+
+  // Localize filter placeholder
+  const filterPlaceholder = browserAPI.i18n.getMessage('filterPlaceholder') || 'Filter by location...';
+  locationFilter.placeholder = filterPlaceholder;
+
+  // Handle location filter
+  locationFilter.addEventListener('input', (e) => {
+    filterText = e.target.value;
+    renderProfileList();
+  });
 
   // Load cached profiles
   function loadProfiles() {
-    browserAPI.storage.local.get(['profileCache', 'sessionCount']).then((result) => {
+    browserAPI.storage.local.get(['profileCache']).then((result) => {
       profiles = result.profileCache || {};
       const count = Object.keys(profiles).length;
-      const sessionCount = result.sessionCount || 0;
 
       profileCountEl.textContent = count;
-      sessionCountEl.textContent = sessionCount;
 
       renderProfileList();
     }).catch((err) => {
@@ -31,15 +77,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Render the profile list
   function renderProfileList() {
-    const entries = Object.entries(profiles);
+    let entries = Object.entries(profiles);
+
+    // Apply location filter
+    if (filterText) {
+      const lowerFilter = filterText.toLowerCase();
+      entries = entries.filter(([, data]) =>
+        data.location && data.location.toLowerCase().includes(lowerFilter)
+      );
+    }
 
     if (entries.length === 0) {
+      const emptyMsg = filterText
+        ? (browserAPI.i18n.getMessage('noLocation') || 'No location')
+        : (browserAPI.i18n.getMessage('emptyState') || 'No profiles extracted yet.\nBrowse Threads to capture profile info.');
       profileListEl.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">🔍</div>
+          <div class="empty-state-icon">${filterText ? '🔍' : '🔍'}</div>
           <div class="empty-state-text">
-            No profiles extracted yet.<br>
-            Browse Threads to capture profile info.
+            ${emptyMsg.replace(/\n/g, '<br>')}
           </div>
         </div>
       `;
@@ -87,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     URL.revokeObjectURL(url);
 
-    showToast('Exported successfully!');
+    showToast(browserAPI.i18n.getMessage('exportSuccess') || 'Exported successfully!');
   });
 
   // Copy to clipboard
@@ -96,26 +152,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       await navigator.clipboard.writeText(dataStr);
-      showToast('Copied to clipboard!');
+      showToast(browserAPI.i18n.getMessage('copySuccess') || 'Copied to clipboard!');
     } catch (err) {
       console.error('Failed to copy:', err);
-      showToast('Failed to copy', true);
+      showToast(browserAPI.i18n.getMessage('copyFailed') || 'Failed to copy', true);
     }
   });
 
   // Clear cache
   clearBtn.addEventListener('click', () => {
-    if (confirm('Are you sure you want to clear all cached profiles?')) {
-      browserAPI.storage.local.set({ profileCache: {}, sessionCount: 0 })
-        .then(() => {
-          profiles = {};
-          loadProfiles();
-          showToast('Cache cleared!');
-        })
-        .catch((err) => {
-          console.error('Failed to clear cache:', err);
-          showToast('Failed to clear cache', true);
-        });
+    if (confirm(browserAPI.i18n.getMessage('confirmClear') || 'Are you sure you want to clear all cached profiles?')) {
+      browserAPI.storage.local.set({ profileCache: {} }, () => {
+        profiles = {};
+        loadProfiles();
+        showToast(browserAPI.i18n.getMessage('cacheCleared') || 'Cache cleared!');
+      });
     }
   });
 

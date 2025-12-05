@@ -8,7 +8,7 @@
 
 - **自動擷取**：瀏覽動態時自動載入作者的地點資訊
 - **地點標籤**：在貼文時間旁顯示作者所在地點
-- **快取機制**：已擷取的資料會快取 24 小時
+- **快取機制**：已擷取的資料會快取 72 小時
 - **匯出資料**：可將所有資料匯出為 JSON
 - **速率限制保護**：被 Threads 限制時會自動暫停並提醒
 
@@ -51,7 +51,7 @@
 
 - 所有資料僅儲存在本機 Chrome 儲存空間
 - 不會將任何資料傳送到外部伺服器
-- 快取會在 24 小時後自動清除
+- 快取會在 72 小時後自動清除
 
 ## 限制
 
@@ -71,7 +71,7 @@ A Chrome extension that automatically displays location info for Threads post au
 
 - **Auto-fetch**: Automatically loads author location while browsing the feed
 - **Location badges**: Shows location next to post timestamp
-- **Caching**: Extracted data is cached for 24 hours
+- **Caching**: Extracted data is cached for 72 hours
 - **Export**: Export all data as JSON
 - **Rate limit protection**: Auto-pauses and notifies when rate limited by Threads
 
@@ -103,7 +103,7 @@ A Chrome extension that automatically displays location info for Threads post au
 
 - All data is stored locally in Chrome's storage
 - No data is sent to external servers
-- Cache is automatically cleared after 24 hours
+- Cache is automatically cleared after 72 hours
 
 ## License
 

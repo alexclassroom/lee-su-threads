@@ -1,4 +1,4 @@
-name: Release Chrome Extension
+name: Release Extension
 
 on:
   push:
@@ -18,21 +18,13 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
 
-      - name: Update version in manifest.json
+      - name: Update version in manifests
         run: |
           jq ".version = \"$VERSION\"" manifest.json > temp.json && mv temp.json manifest.json
+          jq ".version = \"$VERSION\"" manifest.firefox.json > temp.json && mv temp.json manifest.firefox.json
 
-      - name: Package extension
-        run: |
-          mkdir -p dist-zip
-          zip -r "dist-zip/lee-su-threads-v${VERSION}.zip" . \
-            -x "*.git*" \
-            -x "*.DS_Store" \
-            -x "dist-zip/*" \
-            -x "scripts/*" \
-            -x "tmp/*" \
-            -x "*.md" \
-            -x "*.sh"
+      - name: Package extensions
+        run: bash scripts/package.sh
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1

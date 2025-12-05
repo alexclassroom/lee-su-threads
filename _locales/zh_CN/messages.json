@@ -1,0 +1,74 @@
+{
+  "extName": {
+    "message": "Lee-Su-Threads 你是谁"
+  },
+  "extDescription": {
+    "message": "自动显示 Threads 帖文作者的地点信息"
+  },
+  "noLocation": {
+    "message": "无地点"
+  },
+  "popupTitle": {
+    "message": "Threads 地点信息"
+  },
+  "popupSubtitle": {
+    "message": "查看动态中的地点信息"
+  },
+  "profiles": {
+    "message": "个人资料"
+  },
+  "thisSession": {
+    "message": "本次提取"
+  },
+  "exportJson": {
+    "message": "导出 JSON"
+  },
+  "copyClipboard": {
+    "message": "复制到剪贴板"
+  },
+  "clearCache": {
+    "message": "清除缓存"
+  },
+  "emptyState": {
+    "message": "尚未提取任何个人资料。\n浏览 Threads 以提取信息。"
+  },
+  "exportSuccess": {
+    "message": "导出成功！"
+  },
+  "copySuccess": {
+    "message": "已复制到剪贴板！"
+  },
+  "copyFailed": {
+    "message": "复制失败"
+  },
+  "cacheCleared": {
+    "message": "缓存已清除！"
+  },
+  "confirmClear": {
+    "message": "确定要清除所有缓存的个人资料吗？"
+  },
+  "rateLimitWarning": {
+    "message": "⚠️ 地点查询太多次，被 Threads 限制了，30 分钟内不会自动查，若有需要请手动点击按钮查看看"
+  },
+  "rateLimitResume": {
+    "message": "继续自动查询"
+  },
+  "joined": {
+    "message": "加入时间"
+  },
+  "autoQuery": {
+    "message": "自动查询"
+  },
+  "filterPlaceholder": {
+    "message": "筛选地点..."
+  },
+  "exportTitle": {
+    "message": "导出 JSON"
+  },
+  "copyTitle": {
+    "message": "复制"
+  },
+  "clearTitle": {
+    "message": "清除缓存"
+  }
+}

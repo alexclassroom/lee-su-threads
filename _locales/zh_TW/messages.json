@@ -1,0 +1,74 @@
+{
+  "extName": {
+    "message": "Lee-Su-Threads 你是誰"
+  },
+  "extDescription": {
+    "message": "自動顯示 Threads 貼文作者的地點資訊"
+  },
+  "noLocation": {
+    "message": "無地點"
+  },
+  "popupTitle": {
+    "message": "Threads 地點資訊"
+  },
+  "popupSubtitle": {
+    "message": "查看動態中的地點資訊"
+  },
+  "profiles": {
+    "message": "個人檔案"
+  },
+  "thisSession": {
+    "message": "本次擷取"
+  },
+  "exportJson": {
+    "message": "匯出 JSON"
+  },
+  "copyClipboard": {
+    "message": "複製到剪貼簿"
+  },
+  "clearCache": {
+    "message": "清除快取"
+  },
+  "emptyState": {
+    "message": "尚未擷取任何個人檔案。\n瀏覽 Threads 以擷取資訊。"
+  },
+  "exportSuccess": {
+    "message": "匯出成功！"
+  },
+  "copySuccess": {
+    "message": "已複製到剪貼簿！"
+  },
+  "copyFailed": {
+    "message": "複製失敗"
+  },
+  "cacheCleared": {
+    "message": "快取已清除！"
+  },
+  "confirmClear": {
+    "message": "確定要清除所有快取的個人檔案嗎？"
+  },
+  "rateLimitWarning": {
+    "message": "⚠️ 地點查詢太多次，被 Threads 限制了，30 分鐘內不會自動查，若有需要請手動點擊按鈕查看看"
+  },
+  "rateLimitResume": {
+    "message": "繼續自動查詢"
+  },
+  "joined": {
+    "message": "加入時間"
+  },
+  "autoQuery": {
+    "message": "自動查詢"
+  },
+  "filterPlaceholder": {
+    "message": "篩選地點..."
+  },
+  "exportTitle": {
+    "message": "匯出 JSON"
+  },
+  "copyTitle": {
+    "message": "複製"
+  },
+  "clearTitle": {
+    "message": "清除快取"
+  }
+}

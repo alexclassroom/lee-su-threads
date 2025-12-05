@@ -1,0 +1,74 @@
+{
+  "extName": {
+    "message": "Lee-Su-Threads"
+  },
+  "extDescription": {
+    "message": "Threads投稿者の所在地情報を自動表示"
+  },
+  "noLocation": {
+    "message": "地域なし"
+  },
+  "popupTitle": {
+    "message": "Threads 地域情報"
+  },
+  "popupSubtitle": {
+    "message": "フィードの地域情報を表示"
+  },
+  "profiles": {
+    "message": "プロフィール"
+  },
+  "thisSession": {
+    "message": "今回の抽出"
+  },
+  "exportJson": {
+    "message": "JSON でエクスポート"
+  },
+  "copyClipboard": {
+    "message": "クリップボードにコピー"
+  },
+  "clearCache": {
+    "message": "キャッシュをクリア"
+  },
+  "emptyState": {
+    "message": "まだプロフィールが抽出されていません。\nThreads を閲覧して情報を取得してください。"
+  },
+  "exportSuccess": {
+    "message": "エクスポート成功！"
+  },
+  "copySuccess": {
+    "message": "クリップボードにコピーしました！"
+  },
+  "copyFailed": {
+    "message": "コピー失敗"
+  },
+  "cacheCleared": {
+    "message": "キャッシュをクリアしました！"
+  },
+  "confirmClear": {
+    "message": "すべてのキャッシュされたプロフィールをクリアしますか？"
+  },
+  "rateLimitWarning": {
+    "message": "⚠️ 地域クエリが多すぎます。Threadsに制限されました。30分間自動取得を休止します。必要に応じてボタンをクリックして手動でお試しください"
+  },
+  "rateLimitResume": {
+    "message": "自動取得を再開"
+  },
+  "joined": {
+    "message": "参加日"
+  },
+  "autoQuery": {
+    "message": "自動取得"
+  },
+  "filterPlaceholder": {
+    "message": "地域で絞り込み..."
+  },
+  "exportTitle": {
+    "message": "JSONをエクスポート"
+  },
+  "copyTitle": {
+    "message": "コピー"
+  },
+  "clearTitle": {
+    "message": "キャッシュをクリア"
+  }
+}

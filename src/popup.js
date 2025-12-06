@@ -1,5 +1,6 @@
 // Popup script for Threads Profile Extractor
-import { parseJoinedDate, isNewUser } from './lib/dateParser.js';
+import { isNewUser } from './lib/dateParser.js';
+import { escapeHtml } from './lib/utils.js';
 
 // Cross-browser compatibility: use browser.* API if available (Firefox), fallback to chrome.*
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -234,12 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
   }
 
-  // Escape HTML
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
-  }
+  // escapeHtml is imported from lib/utils.js
 
   // Render location stats
   function renderLocationStats() {

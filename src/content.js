@@ -1,5 +1,6 @@
 // Content script for Threads Profile Info Extractor
 import { parseJoinedDate, isNewUser } from './lib/dateParser.js';
+import { escapeHtml } from './lib/utils.js';
 
 'use strict';
 
@@ -176,12 +177,7 @@ function createProfileBadge(profileInfo) {
   return badge;
 }
 
-// Escape HTML to prevent XSS
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+// escapeHtml is imported from lib/utils.js
 
 // Auto-fetch profile info for a username
 async function autoFetchProfile(username, btn) {

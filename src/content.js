@@ -76,11 +76,21 @@ function showRateLimitToast() {
   toast.id = 'threads-rate-limit-toast';
   const warningMsg = browserAPI.i18n.getMessage('rateLimitWarning') || '⚠️ Too many location queries. Rate limited by Threads.';
   const resumeMsg = browserAPI.i18n.getMessage('rateLimitResume') || 'Resume auto-fetch';
-  toast.innerHTML = `
-    <span>${warningMsg}</span>
-    <button id="threads-resume-btn">${resumeMsg}</button>
-    <button id="threads-dismiss-toast">✕</button>
-  `;
+
+  const warningSpan = document.createElement('span');
+  warningSpan.textContent = warningMsg;
+
+  const resumeBtn = document.createElement('button');
+  resumeBtn.id = 'threads-resume-btn';
+  resumeBtn.textContent = resumeMsg;
+
+  const dismissBtn = document.createElement('button');
+  dismissBtn.id = 'threads-dismiss-toast';
+  dismissBtn.textContent = '✕';
+
+  toast.appendChild(warningSpan);
+  toast.appendChild(resumeBtn);
+  toast.appendChild(dismissBtn);
   document.body.appendChild(toast);
 
   // Resume button - clears the cooldown

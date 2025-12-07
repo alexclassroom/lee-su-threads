@@ -1,6 +1,5 @@
 // Popup script for Threads Profile Extractor
 import { isNewUser } from './lib/dateParser.js';
-import { escapeHtml } from './lib/utils.js';
 
 // Cross-browser compatibility: use browser.* API if available (Firefox), fallback to chrome.*
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -124,14 +123,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const emptyMsg = filterText
         ? (browserAPI.i18n.getMessage('noLocation') || 'No location')
         : (browserAPI.i18n.getMessage('emptyState') || 'No profiles extracted yet.\nBrowse Threads to capture profile info.');
-      profileListEl.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">${filterText ? '🔍' : '🔍'}</div>
-          <div class="empty-state-text">
-            ${emptyMsg.replace(/\n/g, '<br>')}
-          </div>
-        </div>
-      `;
+
+      profileListEl.textContent = '';
+      const emptyState = document.createElement('div');
+      emptyState.className = 'empty-state';
+
+      const icon = document.createElement('div');
+      icon.className = 'empty-state-icon';
+      icon.textContent = '🔍';
+
+      const text = document.createElement('div');
+      text.className = 'empty-state-text';
+      const msgLines = emptyMsg.split('\n');
+      msgLines.forEach((line, index) => {
+        if (index > 0) text.appendChild(document.createElement('br'));
+        text.appendChild(document.createTextNode(line));
+      });
+
+      emptyState.appendChild(icon);
+      emptyState.appendChild(text);
+      profileListEl.appendChild(emptyState);
       return;
     }
 
@@ -140,32 +151,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const newLabel = browserAPI.i18n.getMessage('newUser') || 'NEW';
 
-    profileListEl.innerHTML = entries.map(([username, data]) => {
-      const isNew = isNewUser(data.joined);
-      const newTag = isNew ? `<span class="new-user-tag">[${escapeHtml(newLabel)}]</span>` : '';
-      return `
-        <div class="profile-item" data-username="${escapeHtml(username)}">
-          ${data.profileImage
-            ? `<img src="${escapeHtml(data.profileImage)}" class="profile-avatar" alt="${escapeHtml(username)}" />`
-            : `<div class="profile-avatar"></div>`
-          }
-          <div class="profile-info">
-            <div class="profile-name">${escapeHtml(data.displayName || username)}${newTag}</div>
-            <div class="profile-meta">
-              @${escapeHtml(username)}
-              ${data.location ? ` • 📍 ${escapeHtml(data.location)}` : ''}
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    profileListEl.textContent = '';
 
-    // Add click handlers
-    profileListEl.querySelectorAll('.profile-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const username = item.dataset.username;
+    entries.forEach(([username, data]) => {
+      const isNew = isNewUser(data.joined);
+
+      const profileItem = document.createElement('div');
+      profileItem.className = 'profile-item';
+      profileItem.setAttribute('data-username', username);
+
+      // Avatar
+      if (data.profileImage) {
+        const img = document.createElement('img');
+        img.src = data.profileImage;
+        img.className = 'profile-avatar';
+        img.alt = username;
+        profileItem.appendChild(img);
+      } else {
+        const avatarPlaceholder = document.createElement('div');
+        avatarPlaceholder.className = 'profile-avatar';
+        profileItem.appendChild(avatarPlaceholder);
+      }
+
+      // Profile info
+      const profileInfo = document.createElement('div');
+      profileInfo.className = 'profile-info';
+
+      // Profile name
+      const profileName = document.createElement('div');
+      profileName.className = 'profile-name';
+      profileName.textContent = data.displayName || username;
+
+      if (isNew) {
+        const newTag = document.createElement('span');
+        newTag.className = 'new-user-tag';
+        newTag.textContent = `[${newLabel}]`;
+        profileName.appendChild(newTag);
+      }
+
+      // Profile meta
+      const profileMeta = document.createElement('div');
+      profileMeta.className = 'profile-meta';
+      profileMeta.textContent = `@${username}`;
+
+      if (data.location) {
+        profileMeta.appendChild(document.createTextNode(' • 📍 '));
+        profileMeta.appendChild(document.createTextNode(data.location));
+      }
+
+      profileInfo.appendChild(profileName);
+      profileInfo.appendChild(profileMeta);
+      profileItem.appendChild(profileInfo);
+
+      // Add click handler
+      profileItem.addEventListener('click', () => {
         browserAPI.tabs.create({ url: `https://www.threads.com/@${username}` });
       });
+
+      profileListEl.appendChild(profileItem);
     });
   }
 
@@ -259,75 +302,127 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (sortedLocations.length === 0) {
       const emptyMsg = browserAPI.i18n.getMessage('noLocationStats') || 'No location data yet.\nBrowse Threads to capture profile locations.';
-      locationStatsListEl.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">📍</div>
-          <div class="empty-state-text">
-            ${emptyMsg.replace(/\n/g, '<br>')}
-          </div>
-        </div>
-      `;
+
+      locationStatsListEl.textContent = '';
+      const emptyState = document.createElement('div');
+      emptyState.className = 'empty-state';
+
+      const icon = document.createElement('div');
+      icon.className = 'empty-state-icon';
+      icon.textContent = '📍';
+
+      const text = document.createElement('div');
+      text.className = 'empty-state-text';
+      const msgLines = emptyMsg.split('\n');
+      msgLines.forEach((line, index) => {
+        if (index > 0) text.appendChild(document.createElement('br'));
+        text.appendChild(document.createTextNode(line));
+      });
+
+      emptyState.appendChild(icon);
+      emptyState.appendChild(text);
+      locationStatsListEl.appendChild(emptyState);
       return;
     }
 
     const maxCount = sortedLocations[0][1];
 
-    let html = sortedLocations.map(([location, count]) => {
+    locationStatsListEl.textContent = '';
+
+    sortedLocations.forEach(([location, count]) => {
       const percentage = (count / maxCount) * 100;
-      return `
-        <div class="location-stat-item" data-location="${escapeHtml(location)}">
-          <div class="location-info">
-                        <div class="location-content">
-              <div class="location-name">${escapeHtml(location)}</div>
-              <div class="location-bar">
-                <div class="location-bar-fill" style="width: ${percentage}%"></div>
-              </div>
-            </div>
-          </div>
-          <span class="location-count">${count}</span>
-        </div>
-      `;
-    }).join('');
 
-    // Add "No location" entry if there are profiles without location
-    if (noLocationCount > 0) {
-      const noLocLabel = browserAPI.i18n.getMessage('noLocation') || 'No location';
-      html += `
-        <div class="location-stat-item" data-location="" style="opacity: 0.6;">
-          <div class="location-info">
-                        <div class="location-content">
-              <div class="location-name">${escapeHtml(noLocLabel)}</div>
-            </div>
-          </div>
-          <span class="location-count">${noLocationCount}</span>
-        </div>
-      `;
-    }
+      const item = document.createElement('div');
+      item.className = 'location-stat-item';
+      item.setAttribute('data-location', location);
 
-    locationStatsListEl.innerHTML = html;
+      const locationInfo = document.createElement('div');
+      locationInfo.className = 'location-info';
 
-    // Add click handlers to filter by location
-    locationStatsListEl.querySelectorAll('.location-stat-item').forEach(item => {
+      const locationContent = document.createElement('div');
+      locationContent.className = 'location-content';
+
+      const locationName = document.createElement('div');
+      locationName.className = 'location-name';
+      locationName.textContent = location;
+
+      const locationBar = document.createElement('div');
+      locationBar.className = 'location-bar';
+
+      const locationBarFill = document.createElement('div');
+      locationBarFill.className = 'location-bar-fill';
+      locationBarFill.style.width = `${percentage}%`;
+
+      locationBar.appendChild(locationBarFill);
+      locationContent.appendChild(locationName);
+      locationContent.appendChild(locationBar);
+      locationInfo.appendChild(locationContent);
+
+      const countSpan = document.createElement('span');
+      countSpan.className = 'location-count';
+      countSpan.textContent = count;
+
+      item.appendChild(locationInfo);
+      item.appendChild(countSpan);
+
+      // Add click handler
       item.addEventListener('click', () => {
-        const location = item.dataset.location;
-        // Switch to profiles tab and filter
-        if (location === '') {
-          // "No location" was clicked
-          filterNoLocation = true;
-          filterText = '';
-          locationFilter.value = '';
-        } else {
-          filterNoLocation = false;
-          filterText = location;
-          locationFilter.value = location;
-        }
+        filterNoLocation = false;
+        filterText = location;
+        locationFilter.value = location;
         activeTab = 'profiles';
         tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === 'profiles'));
         profilesTab.classList.add('active');
         locationsTab.classList.remove('active');
         renderProfileList();
       });
+
+      locationStatsListEl.appendChild(item);
     });
+
+    // Add "No location" entry if there are profiles without location
+    if (noLocationCount > 0) {
+      const noLocLabel = browserAPI.i18n.getMessage('noLocation') || 'No location';
+
+      const item = document.createElement('div');
+      item.className = 'location-stat-item';
+      item.setAttribute('data-location', '');
+      item.style.opacity = '0.6';
+
+      const locationInfo = document.createElement('div');
+      locationInfo.className = 'location-info';
+
+      const locationContent = document.createElement('div');
+      locationContent.className = 'location-content';
+
+      const locationName = document.createElement('div');
+      locationName.className = 'location-name';
+      locationName.textContent = noLocLabel;
+
+      locationContent.appendChild(locationName);
+      locationInfo.appendChild(locationContent);
+
+      const countSpan = document.createElement('span');
+      countSpan.className = 'location-count';
+      countSpan.textContent = noLocationCount;
+
+      item.appendChild(locationInfo);
+      item.appendChild(countSpan);
+
+      // Add click handler for "No location"
+      item.addEventListener('click', () => {
+        filterNoLocation = true;
+        filterText = '';
+        locationFilter.value = '';
+        activeTab = 'profiles';
+        tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === 'profiles'));
+        profilesTab.classList.add('active');
+        locationsTab.classList.remove('active');
+        renderProfileList();
+      });
+
+      locationStatsListEl.appendChild(item);
+    }
   }
 
   // Initial load

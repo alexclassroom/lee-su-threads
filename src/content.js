@@ -51,7 +51,7 @@ window.addEventListener('threads-profile-extracted', (event) => {
 
 // Listen for rate limit events
 window.addEventListener('threads-rate-limited', () => {
-  console.warn('[Threads Extractor] Rate limited! Pausing auto-fetch for 30 minutes.');
+  console.warn('[Threads Extractor] Rate limited! Pausing auto-fetch for 1 hour.');
   rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
   showRateLimitToast();
 });

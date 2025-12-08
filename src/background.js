@@ -3,6 +3,9 @@
 // Cross-browser compatibility: use browser.* API if available (Firefox), fallback to chrome.*
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
+// Import version utilities
+import { compareVersions, shouldShowOnboarding } from './lib/versionUtils.js';
+
 const USER_ID_CACHE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days for user ID mapping
 
 // Handle async message responses for both Chrome and Firefox
@@ -56,11 +59,52 @@ function handleAsyncMessage(message, sender, sendResponse) {
     return true; // Keep channel open for async response
   }
 
+  // Open onboarding page
+  if (message.type === 'OPEN_ONBOARDING') {
+    browserAPI.tabs.create({
+      url: browserAPI.runtime.getURL('onboarding.html')
+    });
+    return false;
+  }
+
   return false;
 }
 
 // Listen for messages from content script
 browserAPI.runtime.onMessage.addListener(handleAsyncMessage);
+
+// Version-based onboarding system
+// Set this to the minimum version that should see the onboarding page
+// Example: '0.4.0' means users upgrading from <0.4.0 will see onboarding once
+const ONBOARDING_MIN_VERSION = '0.3.5';
+
+// Show onboarding page on first install or version-based updates
+browserAPI.runtime.onInstalled.addListener((details) => {
+  const currentVersion = browserAPI.runtime.getManifest().version;
+
+  if (details.reason === 'install') {
+    // First install - always show onboarding
+    browserAPI.tabs.create({
+      url: browserAPI.runtime.getURL('onboarding.html')
+    });
+    browserAPI.storage.local.set({ onboardingLastSeenVersion: currentVersion });
+  } else if (details.reason === 'update') {
+    // Check version-based onboarding
+    browserAPI.storage.local.get(['onboardingLastSeenVersion']).then((result) => {
+      const lastSeenVersion = result.onboardingLastSeenVersion;
+
+      if (shouldShowOnboarding(lastSeenVersion, ONBOARDING_MIN_VERSION)) {
+        browserAPI.tabs.create({
+          url: browserAPI.runtime.getURL('onboarding.html')
+        });
+        browserAPI.storage.local.set({ onboardingLastSeenVersion: currentVersion });
+      } else {
+        // Still update the version even if we don't show onboarding
+        browserAPI.storage.local.set({ onboardingLastSeenVersion: currentVersion });
+      }
+    });
+  }
+});
 
 // Clean up old cache entries on startup
 browserAPI.runtime.onStartup.addListener(() => {

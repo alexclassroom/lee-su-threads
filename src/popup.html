@@ -11,6 +11,18 @@
         box-sizing: border-box;
       }
 
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
       body {
         width: 360px;
         max-height: 500px;
@@ -397,7 +409,7 @@
         </div>
         <div class="stat-card toggle-card">
           <label class="toggle-switch">
-            <input type="checkbox" id="autoQueryToggle" checked />
+            <input type="checkbox" id="autoQueryToggle" checked aria-label="Toggle automatic profile fetching" />
             <span class="toggle-slider"></span>
           </label>
           <div class="stat-label" data-i18n="autoQuery">Auto-query</div>
@@ -419,11 +431,13 @@
 
       <div id="profilesTab" class="tab-content active">
         <div class="filter-row">
+          <label for="locationFilter" class="visually-hidden">Filter profiles by location</label>
           <input
             type="text"
             id="locationFilter"
             class="filter-input"
             placeholder="Filter by location..."
+            aria-label="Filter profiles by location"
           />
         </div>
 
@@ -453,16 +467,17 @@
 
     <div class="footer">
       <div class="footer-actions">
-        <button class="btn-icon" id="exportBtn" data-i18n-title="exportTitle">
+        <button class="btn-icon" id="exportBtn" data-i18n-title="exportTitle" aria-label="Export profiles as JSON">
           📥
         </button>
-        <button class="btn-icon" id="copyBtn" data-i18n-title="copyTitle">
+        <button class="btn-icon" id="copyBtn" data-i18n-title="copyTitle" aria-label="Copy profiles to clipboard">
           📋
         </button>
         <button
           class="btn-icon btn-icon-danger"
           id="clearBtn"
           data-i18n-title="clearTitle"
+          aria-label="Clear all cached profiles"
         >
           🗑️
         </button>

@@ -3,6 +3,9 @@
 // Cross-browser compatibility: use browser.* API if available (Firefox), fallback to chrome.*
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
+// Import version utilities
+import { compareVersions, shouldShowOnboarding } from './lib/versionUtils.js';
+
 const USER_ID_CACHE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days for user ID mapping
 
 // Handle async message responses for both Chrome and Firefox
@@ -75,28 +78,6 @@ browserAPI.runtime.onMessage.addListener(handleAsyncMessage);
 // Example: '0.4.0' means users upgrading from <0.4.0 will see onboarding once
 const ONBOARDING_MIN_VERSION = '0.3.5';
 
-function compareVersions(v1, v2) {
-  const parts1 = v1.split('.').map(Number);
-  const parts2 = v2.split('.').map(Number);
-
-  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-    const part1 = parts1[i] || 0;
-    const part2 = parts2[i] || 0;
-    if (part1 > part2) return 1;
-    if (part1 < part2) return -1;
-  }
-  return 0;
-}
-
-function shouldShowOnboarding(lastSeenVersion, currentVersion, minVersion) {
-  // No version recorded - existing user, show once
-  if (!lastSeenVersion) return true;
-
-  // Compare last seen version with minimum required version
-  // Show if user's last version is below the minimum
-  return compareVersions(lastSeenVersion, minVersion) < 0;
-}
-
 // Show onboarding page on first install or version-based updates
 browserAPI.runtime.onInstalled.addListener((details) => {
   const currentVersion = browserAPI.runtime.getManifest().version;
@@ -112,7 +93,7 @@ browserAPI.runtime.onInstalled.addListener((details) => {
     browserAPI.storage.local.get(['onboardingLastSeenVersion']).then((result) => {
       const lastSeenVersion = result.onboardingLastSeenVersion;
 
-      if (shouldShowOnboarding(lastSeenVersion, currentVersion, ONBOARDING_MIN_VERSION)) {
+      if (shouldShowOnboarding(lastSeenVersion, ONBOARDING_MIN_VERSION)) {
         browserAPI.tabs.create({
           url: browserAPI.runtime.getURL('onboarding.html')
         });

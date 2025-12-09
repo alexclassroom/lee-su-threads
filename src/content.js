@@ -179,8 +179,8 @@ function createProfileBadge(profileInfo) {
     badge.title = profileInfo.joined ? `${joinedLabel}: ${profileInfo.joined}` : noLocationText;
   }
 
-  // Add [NEW] label for new users
-  if (isNew) {
+  // Add [NEW] label for new users (skip if verified)
+  if (isNew && !profileInfo.isVerified) {
     const newTag = document.createElement('span');
     newTag.className = 'threads-new-user-tag';
     newTag.textContent = `[${newLabel}]`;

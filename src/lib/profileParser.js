@@ -79,21 +79,6 @@ function extractProfileInfo(obj, result = {}) {
     }
   }
 
-  // After traversing, extract joined and location from pairs
-  // Pairs order: [0]=Joined, [1]=Location, [2+]=extra fields (Previous names, Verified, etc.)
-  // - Joined is always the 1st pair (index 0), may contain "·" suffix to strip
-  // - Location is always the 2nd pair (index 1)
-  if (result._pairs && result._pairs.length >= 2 && !result._pairsProcessed) {
-    result._pairsProcessed = true;
-    const pairs = result._pairs;
-    // 1st pair = Joined (clean up user number suffix)
-    let joinedRaw = pairs[0].value;
-    // Remove everything after · (user number like "100M+", "#2,697,767")
-    result.joined = joinedRaw.split(/\s*[·•]\s*/)[0].trim();
-    // 2nd pair = Location
-    result.location = pairs[1].value;
-  }
-
   return result;
 }
 
@@ -105,6 +90,55 @@ function parseProfileResponse(responseText) {
     }
     const data = JSON.parse(jsonStr);
     const profileInfo = extractProfileInfo(data);
+
+    // Process pairs after all extraction is complete
+    if (profileInfo._pairs && profileInfo._pairs.length > 0) {
+      const pairs = profileInfo._pairs;
+
+      // Define label patterns for different languages
+      const joinedLabels = ['Joined', '已加入', '参加日', '가입일', '가입 날짜'];
+      const locationLabels = ['Based in', '所在地點', '所在地', '위치', '거주지'];
+      const verifiedLabels = ['Verified by Meta', 'Meta 驗證', 'Meta 验证', 'Metaにより認証', 'Metaにより認証済み', 'Meta認証', 'Meta 인증', 'Meta 인증 완료'];
+      const nameLabels = ['Name', '名稱', '名前', '이름']; // Exclude these
+      const formerUsernameLabels = ['Former usernames', 'Previous usernames', '先前的用戶名稱', '先前的使用者名稱', '先前的用户名称', '以前のユーザーネーム', '이전 사용자 이름']; // Exclude these
+
+      // Filter out name and former username fields
+      const relevantPairs = pairs.filter(p =>
+        !nameLabels.includes(p.label) && !formerUsernameLabels.includes(p.label)
+      );
+
+      // Primary: Label-based matching
+      const joinedPair = relevantPairs.find(p => joinedLabels.includes(p.label));
+      if (joinedPair) {
+        // Remove everything after · (user number like "100M+", "#2,697,767")
+        profileInfo.joined = joinedPair.value.split(/\s*[·•]\s*/)[0].trim();
+      }
+
+      const locationPair = relevantPairs.find(p => locationLabels.includes(p.label));
+      if (locationPair) {
+        profileInfo.location = locationPair.value;
+      }
+
+      const verifiedPair = relevantPairs.find(p => verifiedLabels.includes(p.label));
+      if (verifiedPair) {
+        profileInfo.isVerified = true;
+        profileInfo.verifiedDate = verifiedPair.value; // e.g., "May 2021"
+      }
+
+      // Fallback: Position-based (for backward compatibility if labels don't match)
+      if (!joinedPair && relevantPairs.length >= 1) {
+        // First relevant pair is likely joined date
+        profileInfo.joined = relevantPairs[0].value.split(/\s*[·•]\s*/)[0].trim();
+      }
+
+      if (!locationPair && relevantPairs.length >= 2) {
+        // Second relevant pair is likely location (only if not verified)
+        const secondPair = relevantPairs[1];
+        if (!verifiedLabels.includes(secondPair.label)) {
+          profileInfo.location = secondPair.value;
+        }
+      }
+    }
 
     // Clean up internal properties
     delete profileInfo._pairs;

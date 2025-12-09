@@ -53,6 +53,46 @@ describe('parseProfileResponse', () => {
       expect(result.username).toBe('testverified');
       expect(result.joined).toBe('July 2023');
       expect(result.location).toBe('United States');
+      expect(result.isVerified).toBe(true);
+      expect(result.verifiedDate).toBe('May 2021');
+    });
+
+    it('should handle own profile with verification (Chinese, 4 fields)', () => {
+      const response = loadFixture('profile-own-verified-zh.txt');
+      const result = parseProfileResponse(response);
+
+      expect(result.username).toBe('testownverified');
+      expect(result.displayName).toBe('測試用戶 Test User');
+      expect(result.joined).toBe('2025年11月');
+      expect(result.location).toBe('台灣');
+      expect(result.isVerified).toBe(true);
+      expect(result.verifiedDate).toBe('2019年9月');
+      expect(result.profileImage).toContain('cdninstagram.com');
+    });
+
+    it('should handle own profile with verification (Japanese, 4 fields)', () => {
+      const response = loadFixture('profile-own-verified-ja.txt');
+      const result = parseProfileResponse(response);
+
+      expect(result.username).toBe('testownverified');
+      expect(result.displayName).toBe('測試用戶 Test User');
+      expect(result.joined).toBe('2025年11月');
+      expect(result.location).toBe('台湾');
+      expect(result.isVerified).toBe(true);
+      expect(result.verifiedDate).toBe('2019年9月');
+      expect(result.profileImage).toContain('cdninstagram.com');
+    });
+
+    it('should handle verified profile (Korean, 4 fields)', () => {
+      const response = loadFixture('profile-verified-ko.txt');
+      const result = parseProfileResponse(response);
+
+      expect(result.username).toBe('testverifiedko');
+      expect(result.displayName).toBe('Test User KO');
+      expect(result.joined).toBe('2023년 7월');
+      expect(result.location).toBe('미국');
+      expect(result.isVerified).toBe(true);
+      expect(result.verifiedDate).toBe('2024년 2월');
     });
   });
 
@@ -66,6 +106,43 @@ describe('parseProfileResponse', () => {
       expect(result.joined).toBe('2023年7月');
       expect(result.location).toBe('未分享');
       expect(result.profileImage).toContain('cdninstagram.com');
+    });
+  });
+
+  describe('profiles without location', () => {
+    it('should handle profile with no location field (Japanese, 2 fields)', () => {
+      const response = loadFixture('profile-no-location-ja.txt');
+      const result = parseProfileResponse(response);
+
+      expect(result.username).toBe('grimeyfresh_32');
+      expect(result.displayName).toBe('theoneandonly');
+      expect(result.joined).toBe('2024年10月');
+      expect(result.location).toBeUndefined();
+      expect(result.profileImage).toContain('cdninstagram.com');
+    });
+  });
+
+  describe('former username handling', () => {
+    it('should filter out Japanese former username field', () => {
+      const payload = fs.readFileSync(path.join(__dirname, 'fixtures/profile-former-username-ja.txt'), 'utf8');
+      const result = parseProfileResponse(payload);
+
+      expect(result.joined).toBe('2025年12月');
+      expect(result.location).toBe('日本');
+      expect(result.displayName).toBeUndefined(); // Name field should be filtered
+      // Former username field should not appear in any extracted data
+      expect(JSON.stringify(result)).not.toContain('Instagramで1回変更');
+    });
+
+    it('should filter out Chinese former username field', () => {
+      const payload = fs.readFileSync(path.join(__dirname, 'fixtures/profile-former-username-zh.txt'), 'utf8');
+      const result = parseProfileResponse(payload);
+
+      expect(result.joined).toBe('2025年12月');
+      expect(result.location).toBe('台灣');
+      expect(result.displayName).toBeUndefined(); // Name field should be filtered
+      // Former username field should not appear in any extracted data
+      expect(JSON.stringify(result)).not.toContain('在 Instagram 變更過 1 次');
     });
   });
 

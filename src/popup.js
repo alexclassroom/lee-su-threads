@@ -244,10 +244,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // Clear cache
   clearBtn.addEventListener('click', () => {
     if (confirm(browserAPI.i18n.getMessage('confirmClear') || 'Are you sure you want to clear all cached profiles?')) {
-      browserAPI.storage.local.set({ profileCache: {} }, () => {
-        profiles = {};
+      // Show loading state
+      const originalText = clearBtn.textContent;
+      clearBtn.textContent = '⏳ ' + (browserAPI.i18n.getMessage('clearing') || 'Clearing...');
+      clearBtn.disabled = true;
+
+      // Clear both profile cache and user ID cache
+      browserAPI.storage.local.set({ profileCache: {}, userIdCache: {} }).then(() => {
+        // Reload profiles from storage (now empty)
         loadProfiles();
-        showToast(browserAPI.i18n.getMessage('cacheCleared') || 'Cache cleared!');
+
+        // Reset button state
+        clearBtn.textContent = originalText;
+        clearBtn.disabled = false;
+
+        showToast(browserAPI.i18n.getMessage('cacheCleared') || '✓ Cache cleared successfully!');
+      }).catch((err) => {
+        console.error('Failed to clear cache:', err);
+
+        // Reset button state
+        clearBtn.textContent = originalText;
+        clearBtn.disabled = false;
+
+        showToast(browserAPI.i18n.getMessage('clearFailed') || 'Failed to clear cache', true);
       });
     }
   });
@@ -260,22 +279,30 @@ document.addEventListener('DOMContentLoaded', () => {
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      padding: 8px 16px;
+      padding: 10px 20px;
       background: ${isError ? '#ef4444' : '#10b981'};
       color: white;
-      border-radius: 6px;
-      font-size: 13px;
-      z-index: 1000;
-      animation: fadeIn 0.2s ease;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 10000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      transition: opacity 0.3s ease;
     `;
     toast.textContent = message;
     document.body.appendChild(toast);
 
+    // Trigger fade in
+    setTimeout(() => {
+      toast.style.opacity = '1';
+    }, 10);
+
+    // Fade out and remove
     setTimeout(() => {
       toast.style.opacity = '0';
-      toast.style.transition = 'opacity 0.2s';
-      setTimeout(() => toast.remove(), 200);
-    }, 2000);
+      setTimeout(() => toast.remove(), 300);
+    }, 2500);
   }
 
   // Render location stats

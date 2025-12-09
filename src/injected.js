@@ -74,11 +74,16 @@ let sessionTokens = null;
 
 function captureSessionTokens(bodyParsed) {
   if (bodyParsed && bodyParsed.fb_dtsg) {
+    // Preserve existing __user if the captured one is '0' (not logged in indicator)
+    const preservedUser = (bodyParsed.__user && bodyParsed.__user !== '0')
+      ? bodyParsed.__user
+      : (sessionTokens?.__user || '0');
+
     sessionTokens = {
       fb_dtsg: bodyParsed.fb_dtsg,
       lsd: bodyParsed.lsd,
       jazoest: bodyParsed.jazoest,
-      __user: bodyParsed.__user,
+      __user: preservedUser,
       __a: bodyParsed.__a,
       __hs: bodyParsed.__hs,
       __dyn: bodyParsed.__dyn,
@@ -94,7 +99,9 @@ function captureSessionTokens(bodyParsed) {
       dpr: bodyParsed.dpr,
       __d: bodyParsed.__d
     };
+
     console.log('%c[Threads Extractor] Session tokens captured!', 'color: #10b981; font-weight: bold;');
+
     window.__threadsExtractorTokens = sessionTokens;
   }
 }
@@ -399,7 +406,7 @@ async function fetchProfileInfo(targetUserId) {
   const url = '/async/wbloks/fetch/?appid=com.bloks.www.text_post_app.about_this_profile_async_action&type=app&__bkv=22713cafbb647b89c4e9c1acdea97d89c8c2046e2f4b18729760e9b1ae0724f7';
 
   const params = new URLSearchParams();
-  params.append('__user', sessionTokens.__user || '0');
+  params.append('__user', '0');  // Always send 0 - auth comes from cookies, not __user param
   params.append('__a', sessionTokens.__a || '1');
   params.append('__req', 'ext_' + Math.random().toString(36).substring(7));
   params.append('__hs', sessionTokens.__hs || '');
@@ -432,7 +439,10 @@ async function fetchProfileInfo(targetUserId) {
   try {
     const response = await originalFetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'X-FB-Friendly-Name': 'BarcelonaProfileAboutThisProfileAsyncActionQuery'
+      },
       body: params,
       credentials: 'include'
     });
@@ -487,7 +497,7 @@ async function fetchProfileInfo(targetUserId) {
 function scanPageForSessionTokens() {
   console.log('%c[Threads Extractor] 🔑 Scanning page for session tokens...', 'color: #ec4899; font-weight: bold;');
 
-  // Look for fb_dtsg in various places
+  // Look for fb_dtsg and __user in various places
   const patterns = {
     fb_dtsg: [
       /"fb_dtsg"\s*:\s*"([^"]+)"/,
@@ -503,6 +513,18 @@ function scanPageForSessionTokens() {
     jazoest: [
       /"jazoest"\s*:\s*"?(\d+)"?/,
       /name="jazoest"\s+value="(\d+)"/
+    ],
+    __user: [
+      /"viewer"\s*:\s*\{[^}]*"id"\s*:\s*"(\d{10,})"/,  // viewer.id (most specific!)
+      /"__user"\s*:\s*"?(\d{10,})"?/,  // Match 10+ digits to avoid matching '0'
+      /"USER_ID"\s*:\s*"(\d{10,})"/,
+      /"userID"\s*:\s*"(\d{10,})"/,
+      /"viewerID"\s*:\s*"(\d{10,})"/,
+      /"viewer_id"\s*:\s*"?(\d{10,})"?/,
+      /"logged_in_user_id"\s*:\s*"?(\d{10,})"?/,
+      /"current_user_id"\s*:\s*"?(\d{10,})"?/,
+      /\["CurrentUserInitialData"[^\]]*"USER_ID"\s*:\s*"(\d{10,})"/,
+      /\["CurrentUserInitialData"[^\]]*"ACCOUNT_ID"\s*:\s*"(\d{10,})"/
     ]
   };
 
@@ -538,6 +560,7 @@ function scanPageForSessionTokens() {
         }
       }
     }
+
   });
 
   if (foundTokens.fb_dtsg) {
@@ -547,7 +570,7 @@ function scanPageForSessionTokens() {
       fb_dtsg: foundTokens.fb_dtsg,
       lsd: foundTokens.lsd || sessionTokens?.lsd || '',
       jazoest: foundTokens.jazoest || sessionTokens?.jazoest || '',
-      __user: sessionTokens?.__user || '0',
+      __user: foundTokens.__user || sessionTokens?.__user || '0',
       __a: sessionTokens?.__a || '1',
       __comet_req: sessionTokens?.__comet_req || '29',
       __d: sessionTokens?.__d || 'www'

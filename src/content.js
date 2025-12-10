@@ -86,16 +86,14 @@ window.addEventListener('threads-friendships-list-loaded', (event) => {
     let isFollowers = false;
     let isFollowing = false;
 
-    tabs.forEach(tab => {
+    tabs.forEach((tab, index) => {
       if (tab.getAttribute('aria-selected') === 'true') {
-        // Find the div with aria-label inside the tab
-        const labelDiv = tab.querySelector('[aria-label]');
-        const ariaLabel = labelDiv?.getAttribute('aria-label') || '';
-
-        if (ariaLabel === '粉絲' || ariaLabel === 'Followers') {
+        // Use tab position instead of string matching (language-agnostic)
+        // First tab (index 0) = Followers
+        // Second tab (index 1) = Following
+        if (index === 0) {
           isFollowers = true;
-        }
-        if (ariaLabel === '追蹤中' || ariaLabel === 'Following') {
+        } else if (index === 1) {
           isFollowing = true;
         }
       }
@@ -276,19 +274,21 @@ function findUsernameContainer(container, username) {
     return null;
   }
 
-  // Navigate up from the profile link to find the container that has a follow button sibling
+  // Navigate up from the profile link to find the container that has a button with role="button"
+  // This container will have the username, profile pic, and follow/following button
   let current = profileLink;
 
   for (let i = 0; i < 15 && current; i++) {
-    // Check if this element's parent contains a follow button as a direct child
     const parent = current.parentElement;
     if (parent) {
-      const followButton = Array.from(parent.children).find(child =>
-        child.getAttribute && child.getAttribute('role') === 'button' &&
-        child.textContent.includes('追蹤') // "Follow" in Chinese
+      // Look for any button child (could be "Follow", "Following", "Follow Back", etc.)
+      const hasButton = Array.from(parent.children).some(child =>
+        child.getAttribute &&
+        child.getAttribute('role') === 'button' &&
+        child.tagName.toLowerCase() !== 'a' // Exclude link buttons
       );
 
-      if (followButton) {
+      if (hasButton) {
         return parent;
       }
     }
@@ -933,16 +933,17 @@ function observeFeed() {
         let isFollowersTab = false;
         let isFollowingTab = false;
 
-        tabs.forEach(tab => {
+        tabs.forEach((tab, index) => {
           const isSelected = tab.getAttribute('aria-selected') === 'true';
-          const labelDiv = tab.querySelector('[aria-label]');
-          const ariaLabel = labelDiv?.getAttribute('aria-label') || '';
 
           if (isSelected) {
-            if (ariaLabel === '粉絲' || ariaLabel === 'Followers') {
+            // Use tab position instead of string matching (language-agnostic)
+            // First tab (index 0) = Followers
+            // Second tab (index 1) = Following
+            if (index === 0) {
               activeList = lastFollowersList;
               isFollowersTab = true;
-            } else if (ariaLabel === '追蹤中' || ariaLabel === 'Following') {
+            } else if (index === 1) {
               activeList = lastFollowingList;
               isFollowingTab = true;
             }

@@ -38,20 +38,16 @@ jobs:
           jq ".version = \"$VERSION\"" src/manifest.json > temp.json && mv temp.json src/manifest.json
           jq ".version = \"$VERSION\"" src/manifest.firefox.json > temp.json && mv temp.json src/manifest.firefox.json
 
-      - name: Build Firefox AMO version (without update_url)
+      - name: Build Chrome and Firefox AMO version
         run: |
-          echo "🔨 Building Firefox AMO version (no update_url, version ${VERSION})..."
-          npm run build
-          # Copy firefox build to firefox-amo and remove update_url
-          cp -r dist/firefox dist/firefox-amo
-          jq 'del(.browser_specific_settings.gecko.update_url)' dist/firefox-amo/manifest.json > temp.json && mv temp.json dist/firefox-amo/manifest.json
+          echo "🔨 Building Chrome and Firefox AMO version (no update_url, version ${VERSION})..."
+          FIREFOX_BUILD_TYPE=amo npm run build
 
       - name: Build Firefox self-hosted version (with update_url)
         if: env.ENABLE_FIREFOX_SIGNING == 'true'
         run: |
           echo "🔨 Building Firefox self-hosted version (with update_url, version ${VERSION}.0)..."
-          # Update version to append .0 for self-hosted build
-          jq ".version = \"${VERSION}.0\"" dist/firefox/manifest.json > temp.json && mv temp.json dist/firefox/manifest.json
+          FIREFOX_BUILD_TYPE=self-hosted FIREFOX_VERSION_SUFFIX=.0 npm run build
 
       - name: Package extensions
         run: bash scripts/package.sh

@@ -5,6 +5,10 @@ import { execSync } from 'child_process';
 const isWatch = process.argv.includes('--watch');
 const isDev = isWatch || process.env.NODE_ENV === 'development';
 
+// Build configuration for Firefox variants
+const FIREFOX_BUILD_TYPE = process.env.FIREFOX_BUILD_TYPE; // 'amo' or 'self-hosted'
+const FIREFOX_VERSION_SUFFIX = process.env.FIREFOX_VERSION_SUFFIX || ''; // e.g., '.0'
+
 // Get version from git tags (supports both annotated and lightweight tags)
 function getGitVersion() {
   try {
@@ -58,7 +62,22 @@ const buildOptions = {
 
 // Copy static files to a specific browser directory
 async function copyStaticFilesForBrowser(browser) {
-  const distDir = `dist/${browser}`;
+  // Determine Firefox-specific build configuration
+  let distDir = `dist/${browser}`;
+  let removeUpdateUrl = false;
+  let versionSuffix = '';
+
+  if (browser === 'firefox' && FIREFOX_BUILD_TYPE) {
+    if (FIREFOX_BUILD_TYPE === 'amo') {
+      distDir = 'dist/firefox-amo';
+      removeUpdateUrl = true;
+      console.log('🦊 Building Firefox AMO variant (no update_url)');
+    } else if (FIREFOX_BUILD_TYPE === 'self-hosted') {
+      distDir = 'dist/firefox';
+      versionSuffix = FIREFOX_VERSION_SUFFIX;
+      console.log(`🦊 Building Firefox self-hosted variant (with update_url, version suffix: ${versionSuffix})`);
+    }
+  }
 
   // Ensure browser-specific dist directory exists
   await mkdir(distDir, { recursive: true });
@@ -96,6 +115,19 @@ async function copyStaticFilesForBrowser(browser) {
       console.log(`📦 ${browser}: Dev build using manifest version ${oldVersion} → ${newVersion}`);
       manifest.version = newVersion;
     }
+  }
+
+  // Apply version suffix if provided (e.g., ".0" for self-hosted builds)
+  if (versionSuffix) {
+    if (!versionSuffix.startsWith('.')) {
+      throw new Error(`Invalid FIREFOX_VERSION_SUFFIX "${versionSuffix}". Must start with a dot (e.g., ".0")`);
+    }
+    manifest.version = manifest.version + versionSuffix;
+  }
+
+  // Remove update_url for AMO builds
+  if (removeUpdateUrl && manifest.browser_specific_settings?.gecko?.update_url) {
+    delete manifest.browser_specific_settings.gecko.update_url;
   }
 
   await writeFile(`${distDir}/manifest.json`, JSON.stringify(manifest, null, 2));

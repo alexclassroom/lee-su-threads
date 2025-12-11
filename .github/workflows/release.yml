@@ -38,6 +38,17 @@ jobs:
           jq ".version = \"$VERSION\"" src/manifest.json > temp.json && mv temp.json src/manifest.json
           jq ".version = \"$VERSION\"" src/manifest.firefox.json > temp.json && mv temp.json src/manifest.firefox.json
 
+      - name: Build Chrome and Firefox AMO version
+        run: |
+          echo "🔨 Building Chrome and Firefox AMO version (no update_url, version ${VERSION})..."
+          FIREFOX_BUILD_TYPE=amo npm run build
+
+      - name: Build Firefox self-hosted version (with update_url)
+        if: env.ENABLE_FIREFOX_SIGNING == 'true'
+        run: |
+          echo "🔨 Building Firefox self-hosted version (with update_url, version ${VERSION}.0)..."
+          FIREFOX_BUILD_TYPE=self-hosted FIREFOX_VERSION_SUFFIX=.0 npm run build
+
       - name: Package extensions
         run: bash scripts/package.sh
 
@@ -57,13 +68,13 @@ jobs:
         if: env.ENABLE_FIREFOX_SIGNING == 'true'
         run: |
           if [ -f dist-zip/lee_su_threads-*.xpi ]; then
-            mv dist-zip/lee_su_threads-*.xpi dist-zip/lee-su-threads-firefox-v${VERSION}-signed.xpi
+            mv dist-zip/lee_su_threads-*.xpi dist-zip/lee-su-threads-firefox-v${VERSION}.0-signed.xpi
           fi
 
       - name: Validate signed extension exists
         if: env.ENABLE_FIREFOX_SIGNING == 'true'
         run: |
-          if [ ! -f "dist-zip/lee-su-threads-firefox-v${VERSION}-signed.xpi" ]; then
+          if [ ! -f "dist-zip/lee-su-threads-firefox-v${VERSION}.0-signed.xpi" ]; then
             echo "Error: Signed extension not found"
             exit 1
           fi
@@ -71,7 +82,7 @@ jobs:
       - name: Generate update manifest
         if: env.ENABLE_FIREFOX_SIGNING == 'true'
         run: |
-          sed "s/VERSION_PLACEHOLDER/$VERSION/g" updates.json.template > dist-zip/updates.json
+          sed "s/VERSION_PLACEHOLDER/${VERSION}.0/g" updates.json.template > dist-zip/updates.json
 
       - name: Create GitHub Release (with signed Firefox)
         if: env.ENABLE_FIREFOX_SIGNING == 'true'

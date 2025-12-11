@@ -33,7 +33,9 @@
 
 **Chrome 使用者：** 前往 [Chrome Web Store](https://chromewebstore.google.com/detail/lee-su-threads/cciaoflecmmomchcjndagcnfpdaanhol)，點擊「**加到 Chrome**」按鈕即可安裝，日後可自動獲得更新。
 
-**Firefox 使用者：** 前往 [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/lee-su-threads-%E4%BD%A0%E6%98%AF%E8%AA%B0/)，點擊「**加到 Firefox**」按鈕即可安裝。
+**Firefox 使用者：**
+- **直接安裝版本（推薦，含自動更新）**：從 [Releases 頁面](https://github.com/meettomorrow/lee-su-threads/releases)下載 `-direct-install.xpi` 檔案，在 Firefox 中開啟即可安裝並獲得自動更新
+- **官方商店版本（審核中）**：[Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/lee-su-threads-%E4%BD%A0%E6%98%AF%E8%AA%B0/) 目前正在等待 Mozilla 審核，通過後即可使用
 
 <details>
 <summary>手動安裝（開發者）</summary>
@@ -116,7 +118,9 @@ A browser extension (Chrome & Firefox) that automatically displays location info
 
 **Chrome Users:** Go to [Chrome Web Store](https://chromewebstore.google.com/detail/lee-su-threads/cciaoflecmmomchcjndagcnfpdaanhol) and click "**Add to Chrome**" for easy installation and automatic updates.
 
-**Firefox Users:** Go to [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/lee-su-threads-%E4%BD%A0%E6%98%AF%E8%AA%B0/) and click "**Add to Firefox**" to install.
+**Firefox Users:**
+- **Direct Install (Recommended, Auto-updates)**: Download the `-direct-install.xpi` file from [Releases page](https://github.com/meettomorrow/lee-su-threads/releases) and open it in Firefox for installation with automatic updates
+- **Official Store Version (Under Review)**: [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/lee-su-threads-%E4%BD%A0%E6%98%AF%E8%AA%B0/) is currently awaiting Mozilla review and will be available once approved
 
 <details>
 <summary>Manual Installation (Developers)</summary>

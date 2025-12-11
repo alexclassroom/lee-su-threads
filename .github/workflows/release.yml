@@ -41,13 +41,13 @@ jobs:
       - name: Build Chrome and Firefox AMO version
         run: |
           echo "🔨 Building Chrome and Firefox AMO version (no update_url, version ${VERSION})..."
-          FIREFOX_BUILD_TYPE=amo npm run build
+          npm run build:firefox-amo
 
       - name: Build Firefox self-hosted version (with update_url)
         if: env.ENABLE_FIREFOX_SIGNING == 'true'
         run: |
           echo "🔨 Building Firefox self-hosted version (with update_url, version ${VERSION}.0)..."
-          FIREFOX_BUILD_TYPE=self-hosted FIREFOX_VERSION_SUFFIX=.0 npm run build
+          npm run build:firefox-self-hosted
 
       - name: Package extensions
         run: bash scripts/package.sh
@@ -68,13 +68,13 @@ jobs:
         if: env.ENABLE_FIREFOX_SIGNING == 'true'
         run: |
           if [ -f dist-zip/lee_su_threads-*.xpi ]; then
-            mv dist-zip/lee_su_threads-*.xpi dist-zip/lee-su-threads-firefox-v${VERSION}.0-signed.xpi
+            mv dist-zip/lee_su_threads-*.xpi dist-zip/lee-su-threads-firefox-v${VERSION}.0-direct-install.xpi
           fi
 
       - name: Validate signed extension exists
         if: env.ENABLE_FIREFOX_SIGNING == 'true'
         run: |
-          if [ ! -f "dist-zip/lee-su-threads-firefox-v${VERSION}.0-signed.xpi" ]; then
+          if [ ! -f "dist-zip/lee-su-threads-firefox-v${VERSION}.0-direct-install.xpi" ]; then
             echo "Error: Signed extension not found"
             exit 1
           fi
@@ -90,7 +90,8 @@ jobs:
         with:
           files: |
             dist-zip/lee-su-threads-chrome-v*.zip
-            dist-zip/lee-su-threads-firefox-v*-signed.xpi
+            dist-zip/lee-su-threads-firefox-v*-amo.zip
+            dist-zip/lee-su-threads-firefox-v*-direct-install.xpi
             dist-zip/updates.json
           draft: false
           prerelease: false
@@ -105,7 +106,7 @@ jobs:
         with:
           files: |
             dist-zip/lee-su-threads-chrome-v*.zip
-            dist-zip/lee-su-threads-firefox-v*.zip
+            dist-zip/lee-su-threads-firefox-v*-amo.zip
           draft: false
           prerelease: false
           generate_release_notes: true

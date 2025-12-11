@@ -61,6 +61,31 @@
   color: #92400e;
 }
 
+/* Dark mode support for toast */
+@media (prefers-color-scheme: dark) {
+  #threads-rate-limit-toast {
+    background: #422006;
+    border-color: #d97706;
+    color: #fef3c7;
+  }
+
+  .threads-rate-limit-hint {
+    color: #fde68a;
+  }
+
+  #threads-dismiss-toast {
+    color: #fde68a;
+  }
+
+  #threads-open-settings-btn {
+    background: #d97706;
+  }
+
+  #threads-open-settings-btn:hover {
+    background: #b45309;
+  }
+}
+
 @keyframes slideInRight {
   from {
     opacity: 0;

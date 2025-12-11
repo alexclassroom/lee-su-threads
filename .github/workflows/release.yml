@@ -36,6 +36,7 @@ jobs:
         run: bash scripts/package.sh
 
       - name: Sign Firefox extension (self-distributed)
+        if: secrets.FIREFOX_API_KEY != ''
         run: |
           npx web-ext sign \
             --source-dir=dist/firefox \
@@ -43,22 +44,49 @@ jobs:
             --api-key=${{ secrets.FIREFOX_API_KEY }} \
             --api-secret=${{ secrets.FIREFOX_API_SECRET }} \
             --channel=unlisted
-        continue-on-error: true
 
       - name: Rename signed Firefox extension
+        if: secrets.FIREFOX_API_KEY != ''
         run: |
           if [ -f dist-zip/lee_su_threads-*.xpi ]; then
             mv dist-zip/lee_su_threads-*.xpi dist-zip/lee-su-threads-firefox-v${VERSION}-signed.xpi
           fi
 
+      - name: Validate signed extension exists
+        if: secrets.FIREFOX_API_KEY != ''
+        run: |
+          if [ ! -f "dist-zip/lee-su-threads-firefox-v${VERSION}-signed.xpi" ]; then
+            echo "Error: Signed extension not found"
+            exit 1
+          fi
+
       - name: Generate update manifest
+        if: secrets.FIREFOX_API_KEY != ''
         run: |
           sed "s/VERSION_PLACEHOLDER/$VERSION/g" updates.json.template > dist-zip/updates.json
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (with signed Firefox)
+        if: secrets.FIREFOX_API_KEY != ''
         uses: softprops/action-gh-release@v1
         with:
-          files: dist-zip/*
+          files: |
+            dist-zip/lee-su-threads-chrome-v*.zip
+            dist-zip/lee-su-threads-firefox-v*-signed.xpi
+            dist-zip/updates.json
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release (without signing)
+        if: secrets.FIREFOX_API_KEY == ''
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist-zip/lee-su-threads-chrome-v*.zip
+            dist-zip/lee-su-threads-firefox-v*.zip
           draft: false
           prerelease: false
           generate_release_notes: true

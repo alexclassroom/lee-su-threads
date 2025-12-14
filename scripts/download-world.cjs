@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * Downloads world data from world_territories_lists and stores original files
- * Source: https://github.com/stefangabos/world_territories
+ * Downloads world data from world_countries_lists and stores original files
+ * Source: https://github.com/stefangabos/world_countries
  *
- * This script downloads the raw world data files (249 territories/territories)
+ * This script downloads the raw world data files (249 countries/territories)
  * and stores them with timestamps. It includes change detection to prevent
  * unnecessary updates.
  *
@@ -32,10 +32,10 @@ const LANGUAGES = {
 // Check if --dry flag is present
 const isDryRun = process.argv.includes('--dry') || process.argv.includes('--dry-run');
 
-// Download JSON from URL
-function downloadJSON(url) {
+// Download JSON from URL with timeout
+function downloadJSON(url, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    const request = https.get(url, (res) => {
       let data = '';
 
       res.on('data', (chunk) => {
@@ -46,11 +46,19 @@ function downloadJSON(url) {
         try {
           resolve(JSON.parse(data));
         } catch (err) {
-          reject(err);
+          reject(new Error(`Failed to parse JSON: ${err.message}`));
         }
       });
-    }).on('error', (err) => {
-      reject(err);
+    });
+
+    request.on('error', (err) => {
+      reject(new Error(`Network error: ${err.message}`));
+    });
+
+    // Add timeout handling
+    request.setTimeout(timeoutMs, () => {
+      request.destroy();
+      reject(new Error(`Request timeout after ${timeoutMs}ms`));
     });
   });
 }
@@ -98,8 +106,8 @@ function detectChanges(downloadedData, dataDir) {
 }
 
 async function main() {
-  console.log('📥 Downloading world data from world_territories_lists...');
-  console.log(`Source: https://github.com/stefangabos/world_territories (world.json - 249 territories)`);
+  console.log('📥 Downloading world data from world_countries_lists...');
+  console.log(`Source: https://github.com/stefangabos/world_countries (world.json - 249 countries/territories)`);
   if (isDryRun) {
     console.log('🔍 DRY RUN MODE - No files will be modified\n');
   } else {
@@ -192,8 +200,8 @@ async function main() {
 
   console.log(`  ✓ Saved download-info.json`);
   console.log(`\n📅 Download Date: ${new Date(timestamp).toISOString().split('T')[0]}`);
-  console.log(`📁 Files saved to: data/territories-raw/`);
-  console.log('\n✅ Done! Run the build process to generate locationMapper.js');
+  console.log(`📁 Files saved to: data/world-raw/`);
+  console.log('\n✅ Done! Run the build process to generate location-flags.json');
 }
 
 main().catch((err) => {

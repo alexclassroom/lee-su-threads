@@ -20,7 +20,14 @@ const OUTPUT_DATA_FILE = path.join(DATA_DIR, 'location-flags.json');
 
 // Convert ISO 3166-1 alpha-2 code to flag emoji
 function isoToFlag(code) {
-  return code.toUpperCase()
+  if (!code || typeof code !== 'string') {
+    throw new Error('ISO code must be a string');
+  }
+  const normalized = code.toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) {
+    throw new Error(`Invalid ISO 3166-1 alpha-2 code: ${code}`);
+  }
+  return normalized
     .split('')
     .map(char => String.fromCodePoint(127397 + char.charCodeAt(0)))
     .join('');

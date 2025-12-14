@@ -253,7 +253,7 @@ function createEmptyLocationIndicator(username) {
  * @param {Object} profileInfo - Profile information object
  * @returns {HTMLSpanElement} - The created badge
  */
-async function createLocationBadge(profileInfo) {
+export async function createLocationBadge(profileInfo) {
   const badge = document.createElement('span');
   badge.className = 'threads-friendships-location-badge';
 

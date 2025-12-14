@@ -86,18 +86,13 @@ const LOCATION_TO_FLAG = {
   '🇺🇸': [
     'united states', 'usa', 'us', 'america',
     '美國', '美国', 'u.s.a', 'u.s.',
-    'アメリカ', '미국',
-    // Common US cities/states
-    'new york', 'california', 'texas', 'florida',
-    'los angeles', 'san francisco', 'seattle',
-    'chicago', 'boston', 'washington', 'dc'
+    'アメリカ', '미국'
   ],
 
   // Canada
   '🇨🇦': [
     'canada', '加拿大', 'ca',
-    'カナダ', '캐나다',
-    'toronto', 'vancouver', 'montreal'
+    'カナダ', '캐나다'
   ],
 
   // United Kingdom
@@ -105,15 +100,13 @@ const LOCATION_TO_FLAG = {
     'united kingdom', 'uk', 'great britain', 'britain',
     '英國', '英国', 'gb',
     'イギリス', '영국',
-    'england', 'scotland', 'wales',
-    'london'
+    'england', 'scotland', 'wales'
   ],
 
   // Australia
   '🇦🇺': [
     'australia', '澳洲', '澳大利亞', '澳大利亚', 'au',
-    'オーストラリア', '호주',
-    'sydney', 'melbourne'
+    'オーストラリア', '호주'
   ],
 
   // India
@@ -125,15 +118,13 @@ const LOCATION_TO_FLAG = {
   // France
   '🇫🇷': [
     'france', '法國', '法国', 'fr',
-    'フランス', '프랑스',
-    'paris'
+    'フランス', '프랑스'
   ],
 
   // Germany
   '🇩🇪': [
     'germany', '德國', '德国', 'de',
-    'ドイツ', '독일',
-    'berlin'
+    'ドイツ', '독일'
   ]
 };
 

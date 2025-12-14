@@ -167,6 +167,11 @@ document.addEventListener('DOMContentLoaded', () => {
   showFlagsToggle.addEventListener('change', () => {
     const enabled = showFlagsToggle.checked;
     browserAPI.storage.local.set({ showFlags: enabled });
+
+    // Refresh popup display immediately
+    renderProfileList();
+    renderLocationStats();
+
     // Notify content script to refresh UI
     browserAPI.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
       if (tabs[0]?.id) {

@@ -1,6 +1,6 @@
 // Content script for Threads Profile Info Extractor
 import { findPostContainer, detectActiveTab } from './lib/domHelpers.js';
-import { injectLocationUIForUser } from './lib/friendshipsUI.js';
+import { injectLocationUIForUser, createLocationBadge } from './lib/friendshipsUI.js';
 import { displayProfileInfo, autoFetchProfile, createProfileBadge } from './lib/postUI.js';
 
 'use strict';
@@ -58,6 +58,18 @@ window.addEventListener('threads-rate-limited', () => {
   console.warn('[Threads Extractor] Rate limited! Pausing auto-fetch for 1 hour.');
   rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
   showRateLimitToast();
+});
+
+// Keyboard shortcut: Ctrl+Shift+, to open settings
+document.addEventListener('keydown', (event) => {
+  // Check for Ctrl+Shift+, on all platforms (standard settings shortcut)
+  if (event.ctrlKey && event.shiftKey && event.key === ',') {
+    event.preventDefault();
+    console.log('[Threads Extractor] Opening settings via keyboard shortcut...');
+
+    // Open popup in a new tab
+    browserAPI.runtime.sendMessage({ type: 'OPEN_POPUP_TAB' });
+  }
 });
 
 // Listen for new user ID discoveries from injected script and persist them
@@ -320,7 +332,7 @@ function addFetchButtons() {
   // Find all time elements that haven't been processed
   const timeElements = document.querySelectorAll('time:not([data-threads-info-added])');
 
-  timeElements.forEach(timeEl => {
+  timeElements.forEach(async timeEl => {
     // Mark as processed
     timeEl.setAttribute('data-threads-info-added', 'true');
 
@@ -349,7 +361,7 @@ function addFetchButtons() {
       const timeParent = timeEl.closest('span') || timeEl.parentElement;
       if (timeParent?.parentElement) {
         timeParent.parentElement.style.alignItems = 'center';
-        const badge = createProfileBadge(profileCache.get(username));
+        const badge = await createProfileBadge(profileCache.get(username));
         timeParent.parentElement.insertBefore(badge, timeParent.nextSibling);
       }
       return;
@@ -679,6 +691,61 @@ browserAPI.storage.local.get(['autoQueryEnabled']).then((result) => {
   autoQueryEnabled = result.autoQueryEnabled !== false;
 });
 
+/**
+ * Update all existing badges on the page to reflect showFlags setting change
+ */
+async function updateBadgesForFlagsChange() {
+  // Update post badges
+  const postBadges = document.querySelectorAll('.threads-profile-info-badge');
+  for (const badge of postBadges) {
+    let username = null;
+
+    // Find the associated username from nearby profile links
+    const postContainer = badge.closest('[role="article"]') || badge.parentElement?.closest('div');
+    if (postContainer) {
+      const profileLink = postContainer.querySelector('a[href^="/@"]');
+      if (profileLink) {
+        const href = profileLink.getAttribute('href');
+        const match = href.match(/^\/@([\w.]+)/);
+        if (match) username = match[1];
+      }
+    }
+
+    // Replace with updated badge
+    if (username && profileCache.has(username)) {
+      const profileInfo = profileCache.get(username);
+      const newBadge = await createProfileBadge(profileInfo);
+      badge.parentElement?.replaceChild(newBadge, badge);
+    }
+  }
+
+  // Update friendships location badges
+  const friendshipBadges = document.querySelectorAll('.threads-friendships-location-badge');
+  for (const badge of friendshipBadges) {
+    let username = null;
+
+    // Find username from nearby profile link
+    const container = badge.parentElement?.parentElement;
+    if (container) {
+      const profileLink = container.querySelector('a[href^="/@"]');
+      if (profileLink) {
+        const href = profileLink.getAttribute('href');
+        const match = href.match(/^\/@([\w.]+)/);
+        if (match) username = match[1];
+      }
+    }
+
+    // Replace with updated badge
+    if (username && profileCache.has(username)) {
+      const profileInfo = profileCache.get(username);
+      const newBadge = await createLocationBadge(profileInfo);
+      badge.parentElement?.replaceChild(newBadge, badge);
+    }
+  }
+
+  console.log('[Threads Extractor] Updated all badges for flags change');
+}
+
 // Listen for setting changes from popup
 browserAPI.runtime.onMessage.addListener((message) => {
   if (message.type === 'AUTO_QUERY_CHANGED') {
@@ -687,6 +754,10 @@ browserAPI.runtime.onMessage.addListener((message) => {
     if (autoQueryEnabled) {
       processFetchQueue();
     }
+  } else if (message.type === 'SHOW_FLAGS_CHANGED') {
+    console.log('[Threads Extractor] Show flags', message.enabled ? 'enabled' : 'disabled');
+    // Update all existing badges on the page
+    updateBadgesForFlagsChange();
   }
 });
 

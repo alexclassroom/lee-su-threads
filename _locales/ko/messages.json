@@ -59,6 +59,15 @@
   "autoQuery": {
     "message": "자동 조회"
   },
+  "autoQueryTooltip": {
+    "message": "Threads를 탐색하는 동안 프로필 정보를 자동으로 가져옵니다"
+  },
+  "showFlags": {
+    "message": "국기 표시"
+  },
+  "showFlagsTooltip": {
+    "message": "위치 이름 옆에 국기를 표시합니다"
+  },
   "filterPlaceholder": {
     "message": "위치로 필터..."
   },
@@ -133,6 +142,15 @@
   },
   "onboardingStep3Desc": {
     "message": "\"위치 통계\" 탭을 확인하여 피드 작성자가 어디에서 왔는지 확인하세요!"
+  },
+  "onboardingStep4Title": {
+    "message": "빠른 액세스 단축키"
+  },
+  "onboardingStep4Desc": {
+    "message": "Threads에서 Ctrl+Shift+,（쉼표）를 누르면 새 탭에서 설정을 빠르게 열 수 있습니다."
+  },
+  "onboardingLink": {
+    "message": "도움말"
   },
   "onboardingCtaTitle": {
     "message": "시작할 준비가 되셨나요?"

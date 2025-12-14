@@ -59,6 +59,15 @@
   "autoQuery": {
     "message": "自動取得"
   },
+  "autoQueryTooltip": {
+    "message": "Threads 閲覧中にプロフィール情報を自動的に取得します"
+  },
+  "showFlags": {
+    "message": "国旗を表示"
+  },
+  "showFlagsTooltip": {
+    "message": "地域名の横に国旗を表示します"
+  },
   "filterPlaceholder": {
     "message": "地域で絞り込み..."
   },
@@ -133,6 +142,15 @@
   },
   "onboardingStep3Desc": {
     "message": "「地域統計」タブをチェックして、フィードの作成者がどこから来ているかを確認しましょう！"
+  },
+  "onboardingStep4Title": {
+    "message": "クイックアクセスショートカット"
+  },
+  "onboardingStep4Desc": {
+    "message": "Threads で Ctrl+Shift+,（カンマ）を押すと、設定を新しいタブで素早く開くことができます。"
+  },
+  "onboardingLink": {
+    "message": "ヘルプ"
   },
   "onboardingCtaTitle": {
     "message": "準備はできましたか？"

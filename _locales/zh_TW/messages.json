@@ -62,6 +62,15 @@
   "autoQuery": {
     "message": "自動查詢"
   },
+  "autoQueryTooltip": {
+    "message": "在瀏覽 Threads 時自動取得個人檔案資訊"
+  },
+  "showFlags": {
+    "message": "顯示國旗"
+  },
+  "showFlagsTooltip": {
+    "message": "在地點名稱旁顯示國旗"
+  },
   "filterPlaceholder": {
     "message": "篩選地點..."
   },
@@ -136,6 +145,15 @@
   },
   "onboardingStep3Desc": {
     "message": "查看「地點統計」分頁，看看你的動態作者來自哪裡！"
+  },
+  "onboardingStep4Title": {
+    "message": "快速存取捷徑"
+  },
+  "onboardingStep4Desc": {
+    "message": "在 Threads 上按下 Ctrl+Shift+,（逗號）即可快速在新分頁中開啟設定。"
+  },
+  "onboardingLink": {
+    "message": "說明"
   },
   "onboardingCtaTitle": {
     "message": "準備好開始了嗎？"

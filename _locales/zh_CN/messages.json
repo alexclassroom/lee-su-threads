@@ -59,6 +59,15 @@
   "autoQuery": {
     "message": "自动查询"
   },
+  "autoQueryTooltip": {
+    "message": "在浏览 Threads 时自动获取个人资料信息"
+  },
+  "showFlags": {
+    "message": "显示国旗"
+  },
+  "showFlagsTooltip": {
+    "message": "在地点名称旁显示国旗"
+  },
   "filterPlaceholder": {
     "message": "筛选地点..."
   },
@@ -133,6 +142,15 @@
   },
   "onboardingStep3Desc": {
     "message": "查看「地点统计」标签，看看你的动态作者来自哪里！"
+  },
+  "onboardingStep4Title": {
+    "message": "快速访问快捷键"
+  },
+  "onboardingStep4Desc": {
+    "message": "在 Threads 上按下 Ctrl+Shift+,（逗号）即可快速在新标签页中打开设置。"
+  },
+  "onboardingLink": {
+    "message": "说明"
   },
   "onboardingCtaTitle": {
     "message": "准备好开始了吗？"

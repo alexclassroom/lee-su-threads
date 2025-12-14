@@ -62,6 +62,15 @@
   "autoQuery": {
     "message": "Auto-query"
   },
+  "autoQueryTooltip": {
+    "message": "Automatically fetch profile information while browsing Threads"
+  },
+  "showFlags": {
+    "message": "Show Flags"
+  },
+  "showFlagsTooltip": {
+    "message": "Display country flags next to location names"
+  },
   "filterPlaceholder": {
     "message": "Filter by location..."
   },
@@ -136,6 +145,15 @@
   },
   "onboardingStep3Desc": {
     "message": "Check out the \"Location Stats\" tab to see where your feed authors are from!"
+  },
+  "onboardingStep4Title": {
+    "message": "Quick Access Shortcut"
+  },
+  "onboardingStep4Desc": {
+    "message": "Press Ctrl+Shift+, (comma) while on Threads to quickly open settings in a new tab."
+  },
+  "onboardingLink": {
+    "message": "Help"
   },
   "onboardingCtaTitle": {
     "message": "Ready to Get Started?"

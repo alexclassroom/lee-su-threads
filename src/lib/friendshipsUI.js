@@ -5,6 +5,7 @@
 
 import { findUsernameContainer } from './domHelpers.js';
 import { isNewUser } from './dateParser.js';
+import { formatLocation } from './locationMapper.js';
 
 // Cross-browser compatibility
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -125,7 +126,7 @@ function createFriendshipsLocationButton(username, userId, profileCache) {
 
       // Replace button with badge
       if (profileInfo.location) {
-        const badge = createLocationBadge(profileInfo);
+        const badge = await createLocationBadge(profileInfo);
         btn.parentElement.replaceChild(badge, btn);
       } else {
         // No location data
@@ -152,11 +153,11 @@ function createFriendshipsLocationButton(username, userId, profileCache) {
  * @param {string} username - Username (without @)
  * @param {Object} profileInfo - Profile information object
  */
-function injectLocationBadgeIntoUserRow(username, profileInfo) {
+async function injectLocationBadgeIntoUserRow(username, profileInfo) {
   // Find all links to this user's profile
   const profileLinks = document.querySelectorAll(`a[href="/@${username}"]`);
 
-  profileLinks.forEach(link => {
+  for (const link of profileLinks) {
     // Navigate up to find the user row container
     let userRow = link;
     for (let i = 0; i < 10 && userRow; i++) {
@@ -170,7 +171,7 @@ function injectLocationBadgeIntoUserRow(username, profileInfo) {
         // Find where to insert the badge
         const insertTarget = findUsernameContainer(userRow, username);
         if (insertTarget) {
-          const badge = createLocationBadge(profileInfo);
+          const badge = await createLocationBadge(profileInfo);
           // Find the follow button that is a direct child
           const followButton = Array.from(insertTarget.children).find(child =>
             child.getAttribute && child.getAttribute('role') === 'button'
@@ -186,7 +187,7 @@ function injectLocationBadgeIntoUserRow(username, profileInfo) {
       }
       userRow = userRow.parentElement;
     }
-  });
+  }
 }
 
 /**
@@ -252,18 +253,24 @@ function createEmptyLocationIndicator(username) {
  * @param {Object} profileInfo - Profile information object
  * @returns {HTMLSpanElement} - The created badge
  */
-function createLocationBadge(profileInfo) {
+export async function createLocationBadge(profileInfo) {
   const badge = document.createElement('span');
   badge.className = 'threads-friendships-location-badge';
 
+  // Get showFlags setting
+  const { showFlags = true } = await browserAPI.storage.local.get(['showFlags']);
+
   const locationText = document.createElement('span');
-  locationText.textContent = profileInfo.location;
+  // Display location with optional flag emoji
+  locationText.textContent = formatLocation(profileInfo.location, false, showFlags);
 
   badge.appendChild(locationText);
 
   if (profileInfo.joined) {
     const joinedLabel = browserAPI.i18n.getMessage('joined') || 'Joined';
-    badge.title = `${joinedLabel}: ${profileInfo.joined}`;
+    badge.title = `${profileInfo.location} • ${joinedLabel}: ${profileInfo.joined}`;
+  } else {
+    badge.title = profileInfo.location;
   }
 
   // Add [NEW] label for new users (skip if verified)

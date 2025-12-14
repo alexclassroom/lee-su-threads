@@ -1,5 +1,6 @@
 // Post UI functions for displaying profile info on Threads posts
 import { isNewUser } from './dateParser.js';
+import { formatLocation } from './locationMapper.js';
 
 // Cross-browser compatibility
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -9,31 +10,31 @@ const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
  * @param {Object} profileInfo - Profile information object
  * @param {Map} profileCache - Profile cache
  */
-export function displayProfileInfo(profileInfo, profileCache) {
+export async function displayProfileInfo(profileInfo, profileCache) {
   const username = profileInfo.username;
 
   // Find all fetch buttons for this user
   const buttons = document.querySelectorAll(`.threads-fetch-btn[data-username="${username}"]`);
 
-  buttons.forEach(btn => {
+  for (const btn of buttons) {
     // Check if we already added a badge next to this button
-    if (btn.previousElementSibling?.classList?.contains('threads-profile-info-badge')) return;
+    if (btn.previousElementSibling?.classList?.contains('threads-profile-info-badge')) continue;
 
     // Create the info badge and insert before the button (so it appears to the left)
-    const badge = createProfileBadge(profileInfo);
+    const badge = await createProfileBadge(profileInfo);
     btn.parentElement?.insertBefore(badge, btn);
 
     // Hide button after success - badge shows the info
     btn.style.display = 'none';
-  });
+  }
 }
 
 /**
  * Create a profile info badge element with location and joined date
  * @param {Object} profileInfo - Profile information object
- * @returns {HTMLElement} Badge element
+ * @returns {Promise<HTMLElement>} Badge element
  */
-export function createProfileBadge(profileInfo) {
+export async function createProfileBadge(profileInfo) {
   const badge = document.createElement('span');
   badge.className = 'threads-profile-info-badge';
 
@@ -41,9 +42,13 @@ export function createProfileBadge(profileInfo) {
   const isNew = isNewUser(profileInfo.joined);
   const newLabel = browserAPI.i18n.getMessage('newUser') || 'NEW';
 
+  // Get showFlags setting
+  const { showFlags = true } = await browserAPI.storage.local.get(['showFlags']);
+
   if (profileInfo.location) {
-    badge.textContent = profileInfo.location;
-    badge.title = `${joinedLabel}: ${profileInfo.joined || 'Unknown'}`;
+    // Display location with optional flag emoji
+    badge.textContent = formatLocation(profileInfo.location, false, showFlags);
+    badge.title = `${profileInfo.location} • ${joinedLabel}: ${profileInfo.joined || 'Unknown'}`;
   } else {
     // Location not available - show "無地點資料" with same hover behavior as regular location
     const noLocationData = browserAPI.i18n.getMessage('noLocationData') || 'No location data';

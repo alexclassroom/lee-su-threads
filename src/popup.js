@@ -1,5 +1,6 @@
 // Popup script for Threads Profile Extractor
 import { isNewUser } from './lib/dateParser.js';
+import { formatLocation } from './lib/locationMapper.js';
 
 // Cross-browser compatibility: use browser.* API if available (Firefox), fallback to chrome.*
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -43,13 +44,16 @@ if (versionNumberEl) {
 
 document.addEventListener('DOMContentLoaded', () => {
   const profileCountEl = document.getElementById('profileCount');
+  const headerProfileCountEl = document.getElementById('headerProfileCount');
   const profileListEl = document.getElementById('profileList');
   const locationStatsListEl = document.getElementById('locationStatsList');
   const exportBtn = document.getElementById('exportBtn');
   const copyBtn = document.getElementById('copyBtn');
   const clearBtn = document.getElementById('clearBtn');
   const autoQueryToggle = document.getElementById('autoQueryToggle');
+  const showFlagsToggle = document.getElementById('showFlagsToggle');
   const locationFilter = document.getElementById('locationFilter');
+  const onboardingLink = document.getElementById('onboardingLink');
   const tabBtns = document.querySelectorAll('.tab-btn');
   const profilesTab = document.getElementById('profilesTab');
   const locationsTab = document.getElementById('locationsTab');
@@ -153,6 +157,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Load and handle show flags setting
+  browserAPI.storage.local.get(['showFlags']).then((result) => {
+    // Default to true if not set
+    const enabled = result.showFlags !== false;
+    showFlagsToggle.checked = enabled;
+  });
+
+  showFlagsToggle.addEventListener('change', () => {
+    const enabled = showFlagsToggle.checked;
+    browserAPI.storage.local.set({ showFlags: enabled });
+
+    // Refresh popup display immediately
+    renderProfileList();
+    renderLocationStats();
+
+    // Notify content script to refresh UI
+    browserAPI.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      if (tabs[0]?.id) {
+        browserAPI.tabs.sendMessage(tabs[0].id, { type: 'SHOW_FLAGS_CHANGED', enabled });
+      }
+    });
+  });
+
   // Localize UI elements
   function localizeUI() {
     document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -188,7 +215,9 @@ document.addEventListener('DOMContentLoaded', () => {
       profiles = result.profileCache || {};
       const count = Object.keys(profiles).length;
 
-      profileCountEl.textContent = count;
+      // Update both profile count displays
+      if (profileCountEl) profileCountEl.textContent = count;
+      if (headerProfileCountEl) headerProfileCountEl.textContent = count;
 
       renderProfileList();
     }).catch((err) => {
@@ -197,7 +226,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Render the profile list
-  function renderProfileList() {
+  async function renderProfileList() {
+    // Get showFlags setting
+    const { showFlags = true } = await browserAPI.storage.local.get(['showFlags']);
+
     let entries = Object.entries(profiles);
 
     // Apply location filter
@@ -287,8 +319,10 @@ document.addEventListener('DOMContentLoaded', () => {
       profileMeta.textContent = `@${username}`;
 
       if (data.location) {
-        profileMeta.appendChild(document.createTextNode(' • 📍 '));
-        profileMeta.appendChild(document.createTextNode(data.location));
+        profileMeta.appendChild(document.createTextNode(' • '));
+        // Display location with flag emoji (location text + flag)
+        const displayText = formatLocation(data.location, false, showFlags);
+        profileMeta.appendChild(document.createTextNode(displayText));
       }
 
       profileInfo.appendChild(profileName);
@@ -363,6 +397,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Onboarding link
+  if (onboardingLink) {
+    onboardingLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      const onboardingUrl = browserAPI.runtime.getURL('onboarding.html');
+      browserAPI.tabs.create({ url: onboardingUrl });
+    });
+  }
+
   // Show toast notification
   function showToast(message, isError = false) {
     const toast = document.createElement('div');
@@ -398,7 +441,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Render location stats
-  function renderLocationStats() {
+  async function renderLocationStats() {
+    // Get showFlags setting
+    const { showFlags = true } = await browserAPI.storage.local.get(['showFlags']);
+
     const entries = Object.entries(profiles);
 
     // Aggregate by location
@@ -461,7 +507,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const locationName = document.createElement('div');
       locationName.className = 'location-name';
-      locationName.textContent = location;
+      // Display location with flag emoji (flag + text)
+      locationName.textContent = formatLocation(location, false, showFlags);
 
       const locationBar = document.createElement('div');
       locationBar.className = 'location-bar';

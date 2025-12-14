@@ -60,18 +60,54 @@ document.addEventListener('DOMContentLoaded', () => {
   let filterNoLocation = false; // Special flag for filtering profiles without location
   let activeTab = 'profiles';
 
-  // Scroll detection for hiding stats in mobile view
+  // Scroll detection for hiding stats in mobile view and sticky tabs shadow
+  const tabsEl = document.querySelector('.tabs');
+  const statsEl = document.querySelector('.stats');
+  const scrollToTopBtn = document.getElementById('scrollToTop');
   let scrollTimeout;
+
   if (contentEl) {
     contentEl.addEventListener('scroll', () => {
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
-        if (contentEl.scrollTop > 20) {
+        const scrollTop = contentEl.scrollTop;
+
+        // Hide stats in mobile view when scrolled
+        if (scrollTop > 20) {
           document.body.classList.add('scrolled');
         } else {
           document.body.classList.remove('scrolled');
         }
+
+        // Add shadow to tabs when sticky (scrolled past stats)
+        if (tabsEl && statsEl) {
+          const statsHeight = statsEl.offsetHeight;
+          if (scrollTop > statsHeight) {
+            tabsEl.classList.add('is-sticky');
+          } else {
+            tabsEl.classList.remove('is-sticky');
+          }
+        }
+
+        // Show/hide scroll-to-top button
+        if (scrollToTopBtn) {
+          if (scrollTop > 200) {
+            scrollToTopBtn.classList.add('visible');
+          } else {
+            scrollToTopBtn.classList.remove('visible');
+          }
+        }
       }, 10);
+    });
+  }
+
+  // Scroll-to-top button click handler
+  if (scrollToTopBtn && contentEl) {
+    scrollToTopBtn.addEventListener('click', () => {
+      contentEl.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
     });
   }
 

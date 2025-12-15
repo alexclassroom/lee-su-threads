@@ -2,10 +2,14 @@
 import { findPostContainer, detectActiveTab } from './lib/domHelpers.js';
 import { injectLocationUIForUser, createLocationBadge } from './lib/friendshipsUI.js';
 import { displayProfileInfo, autoFetchProfile, createProfileBadge } from './lib/postUI.js';
+import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
 
 'use strict';
 
 console.log('[Threads Extractor] 🚀 content.js is loading...');
+
+// Initialize country flag emoji polyfill for Windows compatibility (content script context)
+polyfillCountryFlagEmojis();
 
 // Cross-browser compatibility: use browser.* API if available (Firefox), fallback to chrome.*
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;

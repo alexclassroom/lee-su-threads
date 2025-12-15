@@ -31,5 +31,8 @@
     "jsdom": "^27.3.0",
     "vitest": "^4.0.15",
     "web-ext": "^9.2.0"
+  },
+  "dependencies": {
+    "country-flag-emoji-polyfill": "^0.1.8"
   }
 }

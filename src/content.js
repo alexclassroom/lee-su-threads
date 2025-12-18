@@ -1,5 +1,5 @@
 // Content script for Threads Profile Info Extractor
-import { findPostContainer, detectActiveTab, isUserListContext } from './lib/domHelpers.js';
+import { findPostContainer, detectActiveTab, isUserListContext, findFollowButtonContainer } from './lib/domHelpers.js';
 import { injectLocationUIForUser, createLocationBadge } from './lib/friendshipsUI.js';
 import { displayProfileInfo, autoFetchProfile, createProfileBadge } from './lib/postUI.js';
 import { isSingleUserNotification, findIconElement, extractIconColor } from './lib/notificationDetector.js';
@@ -433,6 +433,18 @@ function addFetchButtons() {
     // Mark as processed
     timeEl.setAttribute('data-threads-info-added', 'true');
 
+    // Skip if this element is inside a friendships dialog (followers/following tabs)
+    // The friendshipsUI module handles those separately
+    // Friendships dialogs have tabs with role="tab"
+    const dialog = timeEl.closest('[role="dialog"]');
+    if (dialog) {
+      const hasTabs = dialog.querySelector('[role="tab"]') !== null;
+      if (hasTabs) {
+        // This is a friendships dialog - skip it
+        return;
+      }
+    }
+
     // Find the post container
     const postContainer = findPostContainer(timeEl);
     if (!postContainer) return;
@@ -478,8 +490,8 @@ function addFetchButtons() {
         // User-list context: use friendships badge (pill style, positioned right)
         const badge = await createLocationBadge(profileInfo);
 
-        // Find the button container (div.x6s0dn4.xqcrz7y) to insert badge before it
-        const buttonContainer = postContainer.querySelector('div.x6s0dn4.xqcrz7y');
+        // Find the Follow button container using structural detection
+        const buttonContainer = findFollowButtonContainer(postContainer);
 
         if (buttonContainer && buttonContainer.parentElement) {
           // Insert badge before the button container (as a sibling)
@@ -520,8 +532,8 @@ function addFetchButtons() {
       btn.title = `Get location for @${username}`;
       btn.setAttribute('data-username', username);
 
-      // Find the button container (div.x6s0dn4.xqcrz7y) to insert button before it
-      const buttonContainer = postContainer.querySelector('div.x6s0dn4.xqcrz7y');
+      // Find the Follow button container using structural detection
+      const buttonContainer = findFollowButtonContainer(postContainer);
 
       if (buttonContainer && buttonContainer.parentElement) {
         // Insert button before the button container (as a sibling)
@@ -630,8 +642,15 @@ function addFetchButtons() {
             showLoginRequiredBanner();
           } else {
             // Profile fetched successfully
-            // displayProfileInfo() (called from message handler) will insert the badge and hide the button
-            // No need to do it here to avoid duplicates
+            const profileInfo = profileCache.get(username);
+            if (profileInfo && isUserList) {
+              // For user-list context (activity modals), insert badge here
+              // friendshipsUI handles its own buttons, but we handle activity modal buttons
+              const badge = await createLocationBadge(profileInfo);
+              btn.parentElement.insertBefore(badge, btn);
+              btn.style.display = 'none';
+            }
+            // For post context, displayProfileInfo() handles it
           }
         } else {
           btn.textContent = '🔄';

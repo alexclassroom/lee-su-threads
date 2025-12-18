@@ -13,9 +13,8 @@ const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 export async function displayProfileInfo(profileInfo, profileCache) {
   const username = profileInfo.username;
 
-  // Find all fetch buttons for this user (both post and friendships buttons)
+  // Find all fetch buttons for this user
   const postButtons = document.querySelectorAll(`.threads-fetch-btn[data-username="${username}"]`);
-  const friendshipsButtons = document.querySelectorAll(`.threads-friendships-fetch-btn[data-username="${username}"]`);
 
   // Handle post-style buttons
   for (const btn of postButtons) {
@@ -30,20 +29,10 @@ export async function displayProfileInfo(profileInfo, profileCache) {
     btn.style.display = 'none';
   }
 
-  // Handle friendships-style buttons (need to import createLocationBadge)
-  const { createLocationBadge } = await import('./friendshipsUI.js');
-
-  for (const btn of friendshipsButtons) {
-    // Check if we already added a badge next to this button
-    if (btn.previousElementSibling?.classList?.contains('threads-friendships-location-badge')) continue;
-
-    // Create the location badge and insert before the button
-    const badge = await createLocationBadge(profileInfo);
-    btn.parentElement?.insertBefore(badge, btn);
-
-    // Hide button after success - badge shows the info
-    btn.style.display = 'none';
-  }
+  // NOTE: We don't handle .threads-friendships-fetch-btn here because:
+  // 1. Buttons in friendships dialog (followers/following tabs) are handled by friendshipsUI module
+  // 2. Buttons in activity modals are handled by addFetchButtons() in content.js
+  // This prevents duplicate badge insertion
 }
 
 /**

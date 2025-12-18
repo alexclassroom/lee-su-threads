@@ -14,9 +14,10 @@ export async function displayProfileInfo(profileInfo, profileCache) {
   const username = profileInfo.username;
 
   // Find all fetch buttons for this user
-  const buttons = document.querySelectorAll(`.threads-fetch-btn[data-username="${username}"]`);
+  const postButtons = document.querySelectorAll(`.threads-fetch-btn[data-username="${username}"]`);
 
-  for (const btn of buttons) {
+  // Handle post-style buttons
+  for (const btn of postButtons) {
     // Check if we already added a badge next to this button
     if (btn.previousElementSibling?.classList?.contains('threads-profile-info-badge')) continue;
 
@@ -27,6 +28,11 @@ export async function displayProfileInfo(profileInfo, profileCache) {
     // Hide button after success - badge shows the info
     btn.style.display = 'none';
   }
+
+  // NOTE: We don't handle .threads-friendships-fetch-btn here because:
+  // 1. Buttons in friendships dialog (followers/following tabs) are handled by friendshipsUI module
+  // 2. Buttons in activity modals are handled by addFetchButtons() in content.js
+  // This prevents duplicate badge insertion
 }
 
 /**

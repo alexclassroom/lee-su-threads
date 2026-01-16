@@ -257,22 +257,39 @@ export async function createLocationBadge(profileInfo) {
   const badge = document.createElement('span');
   badge.className = 'threads-friendships-location-badge';
 
-  // Get showFlags setting
-  const { showFlags = true } = await browserAPI.storage.local.get(['showFlags']);
+  // Get showFlags setting and custom emojis
+  const { showFlags = true, customLocationEmojis = {} } = await browserAPI.storage.local.get(['showFlags', 'customLocationEmojis']);
   const joinedLabel = browserAPI.i18n.getMessage('joined') || 'Joined';
 
   const locationText = document.createElement('span');
 
   if (profileInfo.location) {
-    // Display location with optional flag emoji
-    locationText.textContent = formatLocation(profileInfo.location, false, showFlags);
+    // Get custom emoji for this location (if set)
+    const customEmoji = customLocationEmojis[profileInfo.location] || null;
+
+    const clickHint = browserAPI.i18n.getMessage('clickToCustomize') || 'Click to customize emoji';
+
+    // Display location with optional flag emoji or custom emoji
+    locationText.textContent = formatLocation(profileInfo.location, false, showFlags, customEmoji);
     badge.appendChild(locationText);
 
     if (profileInfo.joined) {
-      badge.title = `${profileInfo.location} • ${joinedLabel}: ${profileInfo.joined}`;
+      badge.title = `${profileInfo.location} • ${joinedLabel}: ${profileInfo.joined}\n(${clickHint})`;
     } else {
-      badge.title = profileInfo.location;
+      badge.title = `${profileInfo.location}\n(${clickHint})`;
     }
+    badge.style.cursor = 'pointer';
+
+    // Click to customize emoji - opens settings with this location
+    badge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const settingsUrl = browserAPI.runtime.getURL('popup.html') + `?location=${encodeURIComponent(profileInfo.location)}`;
+      browserAPI.runtime.sendMessage({
+        type: 'OPEN_POPUP_IN_TAB',
+        url: settingsUrl
+      });
+    });
   } else {
     // Location not available - show "無地點資料"
     const noLocationData = browserAPI.i18n.getMessage('noLocationData') || 'No location data';

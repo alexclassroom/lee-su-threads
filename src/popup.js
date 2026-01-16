@@ -2,6 +2,7 @@
 import { isNewUser } from './lib/dateParser.js';
 import { formatLocation } from './lib/locationMapper.js';
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
+import 'emoji-picker-element';
 
 // Cross-browser compatibility: use browser.* API if available (Firefox), fallback to chrome.*
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -531,6 +532,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
     locationStatsListEl.textContent = '';
 
+    // Create a single shared emoji picker (reused for all locations)
+    let sharedPicker = null;
+    let currentPickerButton = null;
+    let currentPickerLocation = null;
+    let currentResetButton = null;
+
+    const createSharedPicker = () => {
+      if (sharedPicker) return sharedPicker;
+
+      sharedPicker = document.createElement('emoji-picker');
+      sharedPicker.className = 'emoji-picker-popup hidden';
+
+      // Close picker on Escape key
+      sharedPicker.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          sharedPicker.classList.add('hidden');
+        }
+      });
+
+      // Emoji picker selection
+      sharedPicker.addEventListener('emoji-click', (e) => {
+        e.stopPropagation();
+        const selectedEmoji = e.detail.unicode;
+        sharedPicker.classList.add('hidden');
+
+        if (currentPickerButton && currentPickerLocation) {
+          // Update button to show selected emoji
+          currentPickerButton.textContent = selectedEmoji;
+
+          // Show reset button
+          if (currentResetButton) {
+            currentResetButton.classList.remove('hidden');
+          }
+
+          // Save the emoji
+          saveCustomEmoji(currentPickerLocation, selectedEmoji);
+        }
+      });
+
+      return sharedPicker;
+    };
+
+    // Close picker on window resize (important for mobile/desktop transitions)
+    window.addEventListener('resize', () => {
+      if (sharedPicker && !sharedPicker.classList.contains('hidden')) {
+        sharedPicker.classList.add('hidden');
+      }
+    });
+
     sortedLocations.forEach(([location, count]) => {
       const percentage = (count / maxCount) * 100;
       const customEmoji = customLocationEmojis[location] || '';
@@ -577,28 +627,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const emojiCustomizer = document.createElement('div');
       emojiCustomizer.className = 'emoji-customizer';
 
-      // Pencil/emoji button (shows pencil or custom emoji)
-      const editBtn = document.createElement('button');
-      editBtn.className = 'emoji-edit-btn' + (customEmoji ? ' hidden' : '');
-      editBtn.textContent = '✏️';
-      editBtn.setAttribute('aria-label', `Edit emoji for ${location}`);
-      editBtn.title = browserAPI.i18n.getMessage('customEmojiHint') || 'Click to set a custom emoji for this location';
-
-      // Custom emoji display button (only shown when custom emoji is set)
-      const emojiDisplayBtn = document.createElement('button');
-      emojiDisplayBtn.className = 'emoji-edit-btn' + (customEmoji ? '' : ' hidden');
-      emojiDisplayBtn.textContent = customEmoji;
-      emojiDisplayBtn.setAttribute('aria-label', `Custom emoji: ${customEmoji}`);
-      emojiDisplayBtn.title = customEmoji;
-
-      // Input field (hidden initially)
-      const emojiInput = document.createElement('input');
-      emojiInput.type = 'text';
-      emojiInput.className = 'emoji-input hidden';
-      emojiInput.value = customEmoji;
-      emojiInput.maxLength = 10;
-      emojiInput.setAttribute('aria-label', `Custom emoji for ${location}`);
-      emojiInput.title = browserAPI.i18n.getMessage('customEmojiHint') || 'Click to set a custom emoji for this location';
+      // Emoji picker button (shows as smiley when no custom emoji, otherwise shows custom emoji)
+      const emojiPickerBtn = document.createElement('button');
+      emojiPickerBtn.className = 'emoji-picker-btn';
+      emojiPickerBtn.textContent = customEmoji || '🙂';
+      emojiPickerBtn.setAttribute('aria-label', 'Pick emoji');
+      emojiPickerBtn.title = browserAPI.i18n.getMessage('customEmojiHint') || 'Click to pick emoji';
 
       // Reset button (only show when there's a custom emoji)
       const resetBtn = document.createElement('button');
@@ -607,71 +641,56 @@ document.addEventListener('DOMContentLoaded', () => {
       resetBtn.setAttribute('aria-label', `Reset emoji for ${location}`);
       resetBtn.title = browserAPI.i18n.getMessage('resetEmoji') || 'Reset to default flag';
 
-      // Pencil button click - show input field
-      editBtn.addEventListener('click', (e) => {
+      // Emoji picker button click - show shared picker
+      emojiPickerBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        editBtn.classList.add('hidden');
-        emojiDisplayBtn.classList.add('hidden');
-        emojiInput.classList.remove('hidden');
-        emojiInput.focus();
-      });
 
-      // Custom emoji display button click - enter edit mode
-      emojiDisplayBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        emojiDisplayBtn.classList.add('hidden');
-        emojiInput.classList.remove('hidden');
-        emojiInput.focus();
-      });
+        // Create shared picker if it doesn't exist
+        const picker = createSharedPicker();
 
-      // Debounce save on input
-      let saveTimeout;
-      emojiInput.addEventListener('input', (e) => {
-        e.stopPropagation();
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => {
-          const newEmoji = emojiInput.value.trim();
-          saveCustomEmoji(location, newEmoji);
-          // Update display
-          if (newEmoji) {
-            emojiDisplayBtn.textContent = newEmoji;
-            emojiDisplayBtn.title = newEmoji;
-            emojiDisplayBtn.classList.remove('hidden');
-            resetBtn.classList.remove('hidden');
-            editBtn.classList.add('hidden');
-          } else {
-            emojiDisplayBtn.classList.add('hidden');
-            resetBtn.classList.add('hidden');
-            editBtn.classList.remove('hidden');
+        // Update current context
+        currentPickerButton = emojiPickerBtn;
+        currentPickerLocation = location;
+        currentResetButton = resetBtn;
+
+        // Position picker relative to this item
+        if (picker.parentElement !== item) {
+          // Remove from previous parent
+          if (picker.parentElement) {
+            picker.parentElement.removeChild(picker);
           }
-        }, 500);
-      });
+          // Set item to relative positioning
+          item.style.position = 'relative';
+          // Append to current item
+          item.appendChild(picker);
+        }
 
-      // When input loses focus, hide it
-      emojiInput.addEventListener('blur', () => {
-        setTimeout(() => {
-          emojiInput.classList.add('hidden');
-        }, 200);
-      });
+        const isOpening = picker.classList.contains('hidden');
+        picker.classList.toggle('hidden');
 
-      // Prevent click propagation
-      emojiInput.addEventListener('click', (e) => {
-        e.stopPropagation();
+        // Add click-outside handler when opening
+        if (isOpening) {
+          setTimeout(() => {
+            const closeHandler = (event) => {
+              if (!picker.contains(event.target) && event.target !== emojiPickerBtn) {
+                picker.classList.add('hidden');
+                document.removeEventListener('click', closeHandler);
+              }
+            };
+            document.addEventListener('click', closeHandler);
+          }, 0);
+        }
       });
 
       // Reset button click
       resetBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        emojiInput.value = '';
         saveCustomEmoji(location, '');
-        emojiDisplayBtn.classList.add('hidden');
+        emojiPickerBtn.textContent = '🙂';
         resetBtn.classList.add('hidden');
-        editBtn.classList.remove('hidden');
       });
 
-      emojiCustomizer.appendChild(editBtn);
-      emojiCustomizer.appendChild(emojiDisplayBtn);
-      emojiCustomizer.appendChild(emojiInput);
+      emojiCustomizer.appendChild(emojiPickerBtn);
       emojiCustomizer.appendChild(resetBtn);
 
       const countSpan = document.createElement('span');
@@ -684,15 +703,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       locationStatsListEl.appendChild(item);
 
-      // Auto-trigger edit mode if this location was pre-selected via URL
+      // Auto-trigger picker if this location was pre-selected via URL
       if (preSelectLocation && location === preSelectLocation) {
-        // Switch to locations tab
+        // Switch to locations tab and show picker
         setTimeout(() => {
-          editBtn.classList.add('hidden');
-          emojiDisplayBtn.classList.add('hidden');
-          emojiInput.classList.remove('hidden');
-          resetBtn.classList.remove('hidden');
-          emojiInput.focus();
+          // Trigger the button click to show picker
+          emojiPickerBtn.click();
           // Scroll to this item
           item.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);

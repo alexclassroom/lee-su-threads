@@ -70,9 +70,29 @@ document.addEventListener('DOMContentLoaded', () => {
   let filterNoLocation = false; // Special flag for filtering profiles without location
   let activeTab = 'profiles';
 
+  // Detect if we should use sheet modal for emoji picker
+  // Use sheet modal for:
+  // 1. Browser extension popup (360×500px)
+  // 2. Mobile devices (screen width <= 600px)
+  const shouldUseSheetModal = () => {
+    // Check if it's a mobile device (includes tablets in portrait)
+    const isMobileDevice = window.innerWidth <= 600;
+    // Check if it's the browser extension popup
+    const isExtensionPopup = window.innerWidth <= 599 && window.innerHeight <= 600;
+    return isMobileDevice || isExtensionPopup;
+  };
+
+  // Detect if running on a mobile device (for auto-open picker logic)
+  // Use userAgent since popup window size is small even on desktop
+  const isMobileDevice = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   // Check URL parameters for location pre-selection
   const urlParams = new URLSearchParams(window.location.search);
   const preSelectLocation = urlParams.get('location');
+
+  // Get emoji picker sheet modal elements early for use in scroll handler
+  const emojiPickerSheet = document.getElementById('emojiPickerSheet');
+  const emojiPickerSheetClose = document.getElementById('emojiPickerSheetClose');
 
   // Scroll detection for hiding stats in mobile view and sticky tabs shadow
   const tabsEl = document.querySelector('.tabs');
@@ -110,6 +130,22 @@ document.addEventListener('DOMContentLoaded', () => {
             scrollToTopBtn.classList.add('visible');
           } else {
             scrollToTopBtn.classList.remove('visible');
+          }
+        }
+
+        // Close emoji picker when scrolling (if locations tab is active)
+        if (activeTab === 'locations') {
+          const emojiPicker = document.querySelector('emoji-picker:not(.hidden)');
+          if (emojiPicker) {
+            emojiPicker.classList.add('hidden');
+            // Remove dimming when picker closes
+            document.querySelectorAll('.location-stat-item').forEach(item => {
+              item.classList.remove('dimmed');
+            });
+          }
+          // Also close sheet modal if open (use module-level variable)
+          if (emojiPickerSheet && emojiPickerSheet.classList.contains('visible')) {
+            emojiPickerSheet.classList.remove('visible');
           }
         }
 
@@ -482,6 +518,46 @@ document.addEventListener('DOMContentLoaded', () => {
     await saveCustomEmoji(location, '');
   }
 
+  // Set up emoji picker sheet modal event listeners (once, outside of renderLocationStats)
+  // (emojiPickerSheet and emojiPickerSheetClose are already declared at module level above)
+  if (emojiPickerSheet && emojiPickerSheetClose) {
+    // Sheet modal close button handler
+    emojiPickerSheetClose.addEventListener('click', () => {
+      emojiPickerSheet.classList.remove('visible');
+    });
+
+    // Sheet modal backdrop click handler (close when clicking outside)
+    emojiPickerSheet.addEventListener('click', (e) => {
+      if (e.target === emojiPickerSheet) {
+        emojiPickerSheet.classList.remove('visible');
+      }
+    });
+
+    // Close sheet modal on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && emojiPickerSheet.classList.contains('visible')) {
+        emojiPickerSheet.classList.remove('visible');
+      }
+    });
+
+    // Close picker on window resize (important for mobile/desktop transitions)
+    window.addEventListener('resize', () => {
+      // Close any open inline emoji pickers
+      const openPicker = document.querySelector('emoji-picker:not(.hidden)');
+      if (openPicker) {
+        openPicker.classList.add('hidden');
+        // Remove dimming
+        document.querySelectorAll('.location-stat-item').forEach(item => {
+          item.classList.remove('dimmed');
+        });
+      }
+      // Also close sheet modal
+      if (emojiPickerSheet.classList.contains('visible')) {
+        emojiPickerSheet.classList.remove('visible');
+      }
+    });
+  }
+
   // Render location stats
   async function renderLocationStats() {
     // Get custom emojis
@@ -534,6 +610,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     locationStatsListEl.textContent = '';
 
+    // Get sheet modal elements (already defined at module level, just get the dynamic ones)
+    const emojiPickerSheetTitle = document.getElementById('emojiPickerSheetTitle');
+    const emojiPickerSheetContent = document.getElementById('emojiPickerSheetContent');
+
     // Create a single shared emoji picker (reused for all locations)
     let sharedPicker = null;
     let currentPickerButton = null;
@@ -557,7 +637,17 @@ document.addEventListener('DOMContentLoaded', () => {
       sharedPicker.addEventListener('emoji-click', (e) => {
         e.stopPropagation();
         const selectedEmoji = e.detail.unicode;
-        sharedPicker.classList.add('hidden');
+
+        // Close sheet modal if using sheet modal, otherwise hide picker
+        if (shouldUseSheetModal()) {
+          emojiPickerSheet.classList.remove('visible');
+        } else {
+          sharedPicker.classList.add('hidden');
+          // Remove dimming when picker closes
+          document.querySelectorAll('.location-stat-item').forEach(item => {
+            item.classList.remove('dimmed');
+          });
+        }
 
         if (currentPickerButton && currentPickerLocation) {
           // Update button to show selected emoji
@@ -575,13 +665,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       return sharedPicker;
     };
-
-    // Close picker on window resize (important for mobile/desktop transitions)
-    window.addEventListener('resize', () => {
-      if (sharedPicker && !sharedPicker.classList.contains('hidden')) {
-        sharedPicker.classList.add('hidden');
-      }
-    });
 
     sortedLocations.forEach(([location, count]) => {
       const percentage = (count / maxCount) * 100;
@@ -655,32 +738,70 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPickerLocation = location;
         currentResetButton = resetBtn;
 
-        // Position picker relative to this item
-        if (picker.parentElement !== item) {
-          // Remove from previous parent
-          if (picker.parentElement) {
-            picker.parentElement.removeChild(picker);
+        // Check if we should use sheet modal
+        if (shouldUseSheetModal()) {
+          // Use sheet modal in popup mode
+          // Update sheet title with location name
+          emojiPickerSheetTitle.textContent = `${browserAPI.i18n.getMessage('pickEmojiFor') || 'Pick emoji for'} ${location}`;
+
+          // Move picker to sheet content if not already there
+          if (picker.parentElement !== emojiPickerSheetContent) {
+            emojiPickerSheetContent.appendChild(picker);
           }
-          // Set item to relative positioning
-          item.style.position = 'relative';
-          // Append to current item
-          item.appendChild(picker);
-        }
 
-        const isOpening = picker.classList.contains('hidden');
-        picker.classList.toggle('hidden');
+          // Always ensure picker is visible when opening sheet
+          picker.classList.remove('hidden');
 
-        // Add click-outside handler when opening
-        if (isOpening) {
-          setTimeout(() => {
-            const closeHandler = (event) => {
-              if (!picker.contains(event.target) && event.target !== emojiPickerBtn) {
-                picker.classList.add('hidden');
-                document.removeEventListener('click', closeHandler);
+          // Show sheet modal
+          emojiPickerSheet.classList.add('visible');
+        } else {
+          // Use inline picker in tab mode
+          // Position picker relative to this item
+          if (picker.parentElement !== item) {
+            // Remove from previous parent
+            if (picker.parentElement) {
+              picker.parentElement.removeChild(picker);
+            }
+            // Set item to relative positioning
+            item.style.position = 'relative';
+            // Append to current item
+            item.appendChild(picker);
+          }
+
+          const isOpening = picker.classList.contains('hidden');
+          picker.classList.toggle('hidden');
+
+          // Dim other location items when opening picker
+          if (isOpening) {
+            // Dim all other items
+            document.querySelectorAll('.location-stat-item').forEach(otherItem => {
+              if (otherItem !== item) {
+                otherItem.classList.add('dimmed');
               }
-            };
-            document.addEventListener('click', closeHandler);
-          }, 0);
+            });
+          } else {
+            // Remove dimming when closing
+            document.querySelectorAll('.location-stat-item').forEach(otherItem => {
+              otherItem.classList.remove('dimmed');
+            });
+          }
+
+          // Add click-outside handler when opening
+          if (isOpening) {
+            setTimeout(() => {
+              const closeHandler = (event) => {
+                if (!picker.contains(event.target) && event.target !== emojiPickerBtn) {
+                  picker.classList.add('hidden');
+                  // Remove dimming
+                  document.querySelectorAll('.location-stat-item').forEach(otherItem => {
+                    otherItem.classList.remove('dimmed');
+                  });
+                  document.removeEventListener('click', closeHandler);
+                }
+              };
+              document.addEventListener('click', closeHandler);
+            }, 0);
+          }
         }
       });
 
@@ -714,10 +835,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           // Only auto-open picker on desktop (not mobile)
           // On mobile devices, the picker is too large and blocks the view
-          // Note: Use navigator.userAgent instead of window.innerWidth because
-          // popup window is small (~360px) even on desktop
-          const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-          if (!isMobileDevice) {
+          if (!isMobileDevice()) {
             // Trigger the button click to show picker on desktop
             emojiPickerBtn.click();
           }

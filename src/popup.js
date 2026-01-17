@@ -511,6 +511,48 @@ document.addEventListener('DOMContentLoaded', () => {
     await saveCustomEmoji(location, '');
   }
 
+  // Set up emoji picker sheet modal event listeners (once, outside of renderLocationStats)
+  const emojiPickerSheet = document.getElementById('emojiPickerSheet');
+  const emojiPickerSheetClose = document.getElementById('emojiPickerSheetClose');
+
+  if (emojiPickerSheet && emojiPickerSheetClose) {
+    // Sheet modal close button handler
+    emojiPickerSheetClose.addEventListener('click', () => {
+      emojiPickerSheet.classList.remove('visible');
+    });
+
+    // Sheet modal backdrop click handler (close when clicking outside)
+    emojiPickerSheet.addEventListener('click', (e) => {
+      if (e.target === emojiPickerSheet) {
+        emojiPickerSheet.classList.remove('visible');
+      }
+    });
+
+    // Close sheet modal on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && emojiPickerSheet.classList.contains('visible')) {
+        emojiPickerSheet.classList.remove('visible');
+      }
+    });
+
+    // Close picker on window resize (important for mobile/desktop transitions)
+    window.addEventListener('resize', () => {
+      // Close any open inline emoji pickers
+      const openPicker = document.querySelector('emoji-picker:not(.hidden)');
+      if (openPicker) {
+        openPicker.classList.add('hidden');
+        // Remove dimming
+        document.querySelectorAll('.location-stat-item').forEach(item => {
+          item.classList.remove('dimmed');
+        });
+      }
+      // Also close sheet modal
+      if (emojiPickerSheet.classList.contains('visible')) {
+        emojiPickerSheet.classList.remove('visible');
+      }
+    });
+  }
+
   // Render location stats
   async function renderLocationStats() {
     // Get custom emojis
@@ -563,10 +605,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     locationStatsListEl.textContent = '';
 
-    // Get sheet modal elements
-    const emojiPickerSheet = document.getElementById('emojiPickerSheet');
+    // Get sheet modal elements (already defined at module level, just get the dynamic ones)
     const emojiPickerSheetTitle = document.getElementById('emojiPickerSheetTitle');
-    const emojiPickerSheetClose = document.getElementById('emojiPickerSheetClose');
     const emojiPickerSheetContent = document.getElementById('emojiPickerSheetContent');
 
     // Create a single shared emoji picker (reused for all locations)
@@ -620,36 +660,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       return sharedPicker;
     };
-
-    // Close picker on window resize (important for mobile/desktop transitions)
-    window.addEventListener('resize', () => {
-      if (sharedPicker && !sharedPicker.classList.contains('hidden')) {
-        sharedPicker.classList.add('hidden');
-      }
-      // Also close sheet modal
-      if (emojiPickerSheet.classList.contains('visible')) {
-        emojiPickerSheet.classList.remove('visible');
-      }
-    });
-
-    // Sheet modal close button handler
-    emojiPickerSheetClose.addEventListener('click', () => {
-      emojiPickerSheet.classList.remove('visible');
-    });
-
-    // Sheet modal backdrop click handler (close when clicking outside)
-    emojiPickerSheet.addEventListener('click', (e) => {
-      if (e.target === emojiPickerSheet) {
-        emojiPickerSheet.classList.remove('visible');
-      }
-    });
-
-    // Close sheet modal on Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && emojiPickerSheet.classList.contains('visible')) {
-        emojiPickerSheet.classList.remove('visible');
-      }
-    });
 
     sortedLocations.forEach(([location, count]) => {
       const percentage = (count / maxCount) * 100;

@@ -3,6 +3,7 @@ import { findPostContainer, detectActiveTab, isUserListContext, findFollowButton
 import { injectLocationUIForUser, createLocationBadge } from './lib/friendshipsUI.js';
 import { displayProfileInfo, autoFetchProfile, createProfileBadge } from './lib/postUI.js';
 import { isSingleUserNotification, findIconElement, extractIconColor } from './lib/notificationDetector.js';
+import { fetchProfileByUserId, getUserIdByUsername, updateButtonWithFetchResult } from './lib/profileFetcher.js';
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
 
 'use strict';
@@ -494,7 +495,7 @@ async function processFollowersFetchQueue() {
   if (isFetchingFollowers || followersFetchQueue.length === 0) return;
 
   // Check if auto-query followers is disabled
-  if (!autoQueryEnabled || !autoQueryFollowersEnabled) {
+  if (!autoQueryFollowersEnabled) {
     return;
   }
 
@@ -549,53 +550,11 @@ async function processFollowersFetchQueue() {
       continue;
     }
 
-    // Fetch profile info using the same mechanism as button click
-    const fetchRequestId = Math.random().toString(36).substring(7);
-    const profileInfo = await new Promise((resolve) => {
-      const handler = (event) => {
-        if (event.data?.type === 'threads-fetch-response' && event.data?.requestId === fetchRequestId) {
-          window.removeEventListener('message', handler);
-          resolve(event.data.result);
-        }
-      };
-      window.addEventListener('message', handler);
+    // Fetch profile info using shared utility
+    const profileInfo = await fetchProfileByUserId(userId);
 
-      window.postMessage({
-        type: 'threads-fetch-request',
-        requestId: fetchRequestId,
-        userId: userId
-      }, '*');
-
-      setTimeout(() => {
-        window.removeEventListener('message', handler);
-        resolve(null);
-      }, 10000);
-    });
-
-    if (profileInfo && !profileInfo._rateLimited) {
-      profileCache.set(username, profileInfo);
-
-      // Replace button with badge
-      if (profileInfo.location) {
-        const badge = await createLocationBadge(profileInfo);
-        btn.parentElement.replaceChild(badge, btn);
-      } else {
-        // No location data
-        btn.textContent = '➖';
-        btn.title = 'No location available';
-        btn.disabled = true;
-        btn.style.cursor = 'default';
-        btn.style.opacity = '0.4';
-      }
-    } else if (profileInfo?._rateLimited) {
-      btn.textContent = '⏸';
-      btn.title = 'Rate limited. Try again later.';
-      btn.disabled = false;
-    } else {
-      btn.textContent = '🔄';
-      btn.title = 'Failed. Click to retry.';
-      btn.disabled = false;
-    }
+    // Update button with result using shared utility
+    await updateButtonWithFetchResult(btn, username, profileInfo, profileCache, createLocationBadge);
 
     // Throttle: wait before next fetch
     if (followersFetchQueue.length > 0) {
@@ -777,56 +736,12 @@ function addFetchButtons() {
       btn.disabled = true;
       btn.textContent = '⏳';
 
-      // Use postMessage to communicate with injected script
-      const requestId = Math.random().toString(36).substring(7);
-
-      // Request user ID lookup
-      const userId = await new Promise((resolve) => {
-        const handler = (event) => {
-          if (event.data?.type === 'threads-userid-response' && event.data?.requestId === requestId) {
-            window.removeEventListener('message', handler);
-            resolve(event.data.userId);
-          }
-        };
-        window.addEventListener('message', handler);
-
-        window.postMessage({
-          type: 'threads-userid-request',
-          requestId: requestId,
-          username: username
-        }, '*');
-
-        setTimeout(() => {
-          window.removeEventListener('message', handler);
-          resolve(null);
-        }, 2000);
-      });
+      // Request user ID lookup using shared utility
+      const userId = await getUserIdByUsername(username);
 
       if (userId) {
-
-        // Request profile fetch
-        const fetchRequestId = Math.random().toString(36).substring(7);
-        const result = await new Promise((resolve) => {
-          const handler = (event) => {
-            if (event.data?.type === 'threads-fetch-response' && event.data?.requestId === fetchRequestId) {
-              window.removeEventListener('message', handler);
-              resolve(event.data.result);
-            }
-          };
-          window.addEventListener('message', handler);
-
-          window.postMessage({
-            type: 'threads-fetch-request',
-            requestId: fetchRequestId,
-            userId: userId
-          }, '*');
-
-          // Timeout after 10 seconds
-          setTimeout(() => {
-            window.removeEventListener('message', handler);
-            resolve(null);
-          }, 10000);
-        });
+        // Request profile fetch using shared utility
+        const result = await fetchProfileByUserId(userId);
 
         if (result) {
           if (result._loginRequired) {
@@ -925,28 +840,7 @@ function observeFeed() {
                       injectLocationUIForUser(username, userData.pk, profileCache, followersVisibilityObserver);
                     } else {
                       // User not in our GraphQL list - try to get user ID from injected script
-                      // Request user ID lookup via postMessage
-                      const requestId = Math.random().toString(36).substring(7);
-                      const getUserIdPromise = new Promise((resolve) => {
-                        const handler = (event) => {
-                          if (event.data?.type === 'threads-userid-response' && event.data?.requestId === requestId) {
-                            window.removeEventListener('message', handler);
-                            resolve(event.data.userId);
-                          }
-                        };
-                        window.addEventListener('message', handler);
-                        window.postMessage({
-                          type: 'threads-userid-request',
-                          requestId: requestId,
-                          username: username
-                        }, '*');
-                        setTimeout(() => {
-                          window.removeEventListener('message', handler);
-                          resolve(null);
-                        }, 100);
-                      });
-
-                      getUserIdPromise.then(userId => {
+                      getUserIdByUsername(username, 100).then(userId => {
                         if (userId) {
                           injectLocationUIForUser(username, userId, profileCache, followersVisibilityObserver);
                         }

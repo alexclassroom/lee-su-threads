@@ -6,6 +6,7 @@
 import { findUsernameContainer } from './domHelpers.js';
 import { isNewUser } from './dateParser.js';
 import { formatLocation } from './locationMapper.js';
+import { fetchProfileByUserId, updateButtonWithFetchResult } from './profileFetcher.js';
 
 // Cross-browser compatibility
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -106,51 +107,11 @@ function createFriendshipsLocationButton(username, userId, profileCache) {
     btn.disabled = true;
     btn.textContent = '⏳';
 
-    // Fetch profile info
-    const fetchRequestId = Math.random().toString(36).substring(7);
-    const profileInfo = await new Promise((resolve) => {
-      const handler = (event) => {
-        if (event.data?.type === 'threads-fetch-response' && event.data?.requestId === fetchRequestId) {
-          window.removeEventListener('message', handler);
-          resolve(event.data.result);
-        }
-      };
-      window.addEventListener('message', handler);
+    // Fetch profile info using shared utility
+    const profileInfo = await fetchProfileByUserId(userId);
 
-      window.postMessage({
-        type: 'threads-fetch-request',
-        requestId: fetchRequestId,
-        userId: userId
-      }, '*');
-
-      setTimeout(() => {
-        window.removeEventListener('message', handler);
-        resolve(null);
-      }, 10000);
-    });
-
-    if (profileInfo && !profileInfo._rateLimited) {
-      profileCache.set(username, profileInfo);
-
-      // Replace button with badge
-      if (profileInfo.location) {
-        const badge = await createLocationBadge(profileInfo);
-        btn.parentElement.replaceChild(badge, btn);
-      } else {
-        // No location data
-        btn.textContent = '—';
-        btn.title = 'No location available';
-        btn.disabled = true;
-      }
-    } else if (profileInfo?._rateLimited) {
-      btn.textContent = '⏸';
-      btn.title = 'Rate limited. Try again later.';
-      btn.disabled = false;
-    } else {
-      btn.textContent = '🔄';
-      btn.title = 'Failed. Click to retry.';
-      btn.disabled = false;
-    }
+    // Update button with result using shared utility
+    await updateButtonWithFetchResult(btn, username, profileInfo, profileCache, createLocationBadge);
   });
 
   return btn;

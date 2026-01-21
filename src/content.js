@@ -4,6 +4,9 @@ import { injectLocationUIForUser, createLocationBadge } from './lib/friendshipsU
 import { displayProfileInfo, autoFetchProfile, createProfileBadge } from './lib/postUI.js';
 import { isSingleUserNotification, findIconElement, extractIconColor } from './lib/notificationDetector.js';
 import { fetchProfileByUserId, getUserIdByUsername, updateButtonWithFetchResult } from './lib/profileFetcher.js';
+import { showRateLimitToast, showLoginRequiredBanner } from './lib/notifications.js';
+import { queueFetch, processFetchQueue, processFollowersFetchQueue } from './lib/queueManager.js';
+import { createFeedVisibilityObserver, createFollowersVisibilityObserver } from './lib/autoFetchObservers.js';
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
 
 'use strict';
@@ -23,19 +26,26 @@ const profileCache = new Map();
 // Auto-fetch queue and throttling
 const fetchQueue = [];
 const followersFetchQueue = [];
-let isFetching = false;
-let isFetchingFollowers = false;
-let autoFetchReady = false; // Wait for initial data to load
-let autoQueryEnabled = true; // User preference for auto-query
-let autoQueryFollowersEnabled = false; // User preference for auto-query followers (default off)
-let rateLimitedUntil = 0; // Timestamp when rate limit cooldown ends
+const pendingVisibility = new Map(); // Track posts waiting to be queued
+const pendingFollowersVisibility = new Map(); // Track followers waiting to be queued
+
+// Constants
 const FETCH_DELAY_MS = 800; // Delay between auto-fetches to avoid rate limiting
 const INITIAL_DELAY_MS = 2000; // Wait for bulk-route-definitions to load
 const RATE_LIMIT_COOLDOWN_MS = 60 * 60 * 1000; // 60 minutes (1 hour) cooldown
 const MAX_QUEUE_SIZE = 5; // Maximum number of posts in queue
 const VISIBILITY_DELAY_MS = 500; // How long a post must be visible before queuing
-const pendingVisibility = new Map(); // Track posts waiting to be queued
-const pendingFollowersVisibility = new Map(); // Track followers waiting to be queued
+
+// Shared state object for queue manager and observers
+const state = {
+  isFetching: false,
+  isFetchingFollowers: false,
+  autoFetchReady: false, // Wait for initial data to load
+  autoQueryEnabled: true, // User preference for auto-query
+  autoQueryFollowersEnabled: false, // User preference for auto-query followers (default off)
+  rateLimitedUntil: 0, // Timestamp when rate limit cooldown ends
+  isUserLoggedIn: null // null = unknown, true = logged in, false = logged out
+}
 
 // Inject the network interceptor script
 function injectScript() {
@@ -67,8 +77,8 @@ window.addEventListener('threads-profile-extracted', (event) => {
 // Listen for rate limit events
 window.addEventListener('threads-rate-limited', () => {
   console.warn('[Threads Extractor] Rate limited! Pausing auto-fetch for 1 hour.');
-  rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
-  showRateLimitToast();
+  state.rateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+  showRateLimitToast(RATE_LIMIT_COOLDOWN_MS);
 });
 
 // Listen for login required events
@@ -89,21 +99,18 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-// Track login state
-let isUserLoggedIn = null; // null = unknown, true = logged in, false = logged out
-
 // Listen for login state changes from injected script
 window.addEventListener('message', (event) => {
   if (event.data?.type === 'threads-login-state') {
-    const wasLoggedIn = isUserLoggedIn;
-    isUserLoggedIn = event.data.isLoggedIn;
+    const wasLoggedIn = state.isUserLoggedIn;
+    state.isUserLoggedIn = event.data.isLoggedIn;
 
-    console.log(`[Threads Extractor] Login state changed: ${isUserLoggedIn ? 'LOGGED IN' : 'LOGGED OUT'}`);
+    console.log(`[Threads Extractor] Login state changed: ${state.isUserLoggedIn ? 'LOGGED IN' : 'LOGGED OUT'}`);
 
     // If user just logged out, clear any pending fetches
-    if (wasLoggedIn === true && isUserLoggedIn === false) {
+    if (wasLoggedIn === true && state.isUserLoggedIn === false) {
       fetchQueue.length = 0;
-      isFetching = false;
+      state.isFetching = false;
     }
   }
 
@@ -191,101 +198,6 @@ function waitForFriendshipsDOM(users) {
   tryInject();
 }
 
-// Show rate limit toast notification
-function showRateLimitToast() {
-  // Remove existing toast if any
-  const existing = document.getElementById('threads-rate-limit-toast');
-  if (existing) existing.remove();
-
-  const toast = document.createElement('div');
-  toast.id = 'threads-rate-limit-toast';
-  const warningMsg = browserAPI.i18n.getMessage('rateLimitWarning') || '⚠️ Too many location queries. Rate limited by Threads.';
-  const popupHintMsg = browserAPI.i18n.getMessage('rateLimitPopupHint') || 'You can turn off auto-query in the popup.';
-  const openSettingsMsg = browserAPI.i18n.getMessage('rateLimitOpenSettings') || 'How to Use';
-
-  const warningSpan = document.createElement('span');
-  warningSpan.textContent = warningMsg;
-
-  const hintSpan = document.createElement('span');
-  hintSpan.className = 'threads-rate-limit-hint';
-  hintSpan.textContent = popupHintMsg;
-
-  const openSettingsBtn = document.createElement('button');
-  openSettingsBtn.id = 'threads-open-settings-btn';
-  openSettingsBtn.textContent = openSettingsMsg;
-
-  const dismissBtn = document.createElement('button');
-  dismissBtn.id = 'threads-dismiss-toast';
-  dismissBtn.textContent = '✕';
-
-  toast.appendChild(warningSpan);
-  toast.appendChild(hintSpan);
-  toast.appendChild(openSettingsBtn);
-  toast.appendChild(dismissBtn);
-  document.body.appendChild(toast);
-
-  // Open settings button - opens popup in a new tab
-  document.getElementById('threads-open-settings-btn').addEventListener('click', () => {
-    // Send message to background script to open popup.html in a new tab
-    browserAPI.runtime.sendMessage({ type: 'OPEN_POPUP_TAB' });
-  });
-
-  // Dismiss button
-  document.getElementById('threads-dismiss-toast').addEventListener('click', () => {
-    toast.remove();
-  });
-
-  // Auto-hide after cooldown ends
-  setTimeout(() => {
-    if (toast.parentElement) {
-      toast.remove();
-    }
-  }, RATE_LIMIT_COOLDOWN_MS);
-}
-
-// Show login required banner notification
-function showLoginRequiredBanner() {
-  console.log('[Threads Extractor] showLoginRequiredBanner called');
-  // Remove existing banner if any
-  const existing = document.getElementById('threads-login-required-banner');
-  if (existing) {
-    console.log('[Threads Extractor] Removing existing banner');
-    existing.remove();
-  }
-
-  const banner = document.createElement('div');
-  banner.id = 'threads-login-required-banner';
-  console.log('[Threads Extractor] Creating new banner element');
-  const warningMsg = browserAPI.i18n.getMessage('loginRequiredWarning') || '🔒 Please log in to Threads to use this extension';
-  const hintMsg = browserAPI.i18n.getMessage('loginRequiredHint') || 'Location info can only be fetched when you\'re logged in.';
-  const dismissMsg = browserAPI.i18n.getMessage('dismiss') || 'Dismiss';
-
-  const warningSpan = document.createElement('span');
-  warningSpan.className = 'threads-login-required-main';
-  warningSpan.textContent = warningMsg;
-
-  const hintSpan = document.createElement('span');
-  hintSpan.className = 'threads-login-required-hint';
-  hintSpan.textContent = hintMsg;
-
-  const dismissBtn = document.createElement('button');
-  dismissBtn.id = 'threads-dismiss-login-banner';
-  dismissBtn.textContent = dismissMsg;
-
-  banner.appendChild(warningSpan);
-  banner.appendChild(hintSpan);
-  banner.appendChild(dismissBtn);
-  document.body.appendChild(banner);
-  console.log('[Threads Extractor] Banner appended to body');
-
-  // Dismiss button
-  dismissBtn.addEventListener('click', () => {
-    console.log('[Threads Extractor] Banner dismissed');
-    banner.remove();
-    // Don't persist dismissal - allow showing again on next click
-  });
-}
-
 // Inject location badges into followers/following list
 function injectLocationBadgesIntoFriendshipsList(users) {
   for (const user of users) {
@@ -294,276 +206,31 @@ function injectLocationBadgesIntoFriendshipsList(users) {
   }
 }
 
-// Process the fetch queue with throttling
-async function processFetchQueue() {
-  if (isFetching || fetchQueue.length === 0) return;
+// Declare observers first (will be initialized after queue functions are defined)
+let visibilityObserver;
+let followersVisibilityObserver;
 
-  // Check if auto-query is disabled
-  if (!autoQueryEnabled) {
-    console.log('[Threads Extractor] Auto-query disabled. Skipping queue processing.');
-    return;
-  }
-
-  // Check if rate limited
-  if (Date.now() < rateLimitedUntil) {
-    console.log('[Threads Extractor] Rate limit cooldown active. Skipping queue processing.');
-    return;
-  }
-
-  isFetching = true;
-
-  while (fetchQueue.length > 0) {
-    // Stop processing if user is logged out
-    if (isUserLoggedIn === false) {
-      console.log('[Threads Extractor] User logged out. Stopping queue processing.');
-      fetchQueue.length = 0; // Clear the queue
-      break;
-    }
-
-    // Check rate limit before each fetch
-    if (Date.now() < rateLimitedUntil) {
-      console.log('[Threads Extractor] Rate limit triggered. Stopping queue processing.');
-      break;
-    }
-
-    const { username, btn } = fetchQueue.shift();
-    console.log(`[Threads Extractor] Processing @${username}, queue length: ${fetchQueue.length}`);
-
-    // Skip if already fetched while in queue
-    if (profileCache.has(username)) {
-      const cached = profileCache.get(username);
-      displayProfileInfo(cached);
-      btn.style.display = 'none';
-      continue;
-    }
-
-    btn.textContent = '⏳';
-    await autoFetchProfile(username, btn, profileCache);
-
-    // Throttle: wait before next fetch
-    if (fetchQueue.length > 0) {
-      await new Promise(r => setTimeout(r, FETCH_DELAY_MS));
-    }
-  }
-
-  isFetching = false;
+// Wrapper functions for queue management
+function queueFeedFetch(username, btn) {
+  queueFetch(username, btn, fetchQueue, visibilityObserver,
+    () => processFetchQueue(fetchQueue, state, profileCache, FETCH_DELAY_MS),
+    state.autoFetchReady, profileCache, MAX_QUEUE_SIZE);
 }
 
-// Queue a profile for auto-fetch
-function queueAutoFetch(username, btn) {
-  // Don't queue if already cached
-  if (profileCache.has(username)) return;
-
-  // Check if already in queue
-  const existingIndex = fetchQueue.findIndex(item => item.username === username);
-  if (existingIndex !== -1) {
-    // Already in queue - move to front (prioritize recently visible)
-    const existing = fetchQueue.splice(existingIndex, 1)[0];
-    fetchQueue.unshift(existing);
-    return;
-  }
-
-  // Add to front of queue (newest visible posts get priority)
-  fetchQueue.unshift({ username, btn });
-
-  // Trim queue if it exceeds max size (remove oldest items from the back)
-  while (fetchQueue.length > MAX_QUEUE_SIZE) {
-    const removed = fetchQueue.pop();
-    // Re-observe removed items so they can be re-queued if scrolled back
-    if (removed && removed.btn) {
-      visibilityObserver.observe(removed.btn);
-    }
-  }
-
-  // Only start processing if ready (initial delay passed)
-  if (autoFetchReady) {
-    processFetchQueue();
-  }
-}
-
-// Intersection Observer for auto-fetching visible posts
-const visibilityObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    const btn = entry.target;
-    const username = btn.getAttribute('data-username');
-    if (!username) return;
-
-    if (entry.isIntersecting) {
-      // Skip auto-fetch if user is logged out
-      if (isUserLoggedIn === false) {
-        // Mark button as login-required without fetching
-        btn.textContent = '🔒';
-        btn.title = browserAPI.i18n.getMessage('loginRequired') || 'Login required. Click to learn more.';
-        btn.setAttribute('data-login-required', 'true');
-        visibilityObserver.unobserve(btn);
-        return;
-      }
-
-      // Post entered viewport - start delay timer
-      if (!pendingVisibility.has(username) && !profileCache.has(username)) {
-        const timeoutId = setTimeout(() => {
-          // Still visible after delay? Queue it
-          if (pendingVisibility.has(username)) {
-            pendingVisibility.delete(username);
-            queueAutoFetch(username, btn);
-            visibilityObserver.unobserve(btn);
-          }
-        }, VISIBILITY_DELAY_MS);
-        pendingVisibility.set(username, timeoutId);
-      }
-    } else {
-      // Post left viewport - cancel pending timer
-      if (pendingVisibility.has(username)) {
-        clearTimeout(pendingVisibility.get(username));
-        pendingVisibility.delete(username);
-      }
-    }
-  });
-}, { threshold: 0.1 });
-
-// Intersection Observer for auto-fetching visible followers/following
-const followersVisibilityObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    const btn = entry.target;
-    const username = btn.getAttribute('data-username');
-    const userId = btn.getAttribute('data-userid');
-    if (!username || !userId) return;
-
-    if (entry.isIntersecting) {
-      // Skip auto-fetch if main auto-query or followers auto-query is disabled
-      if (!autoQueryEnabled || !autoQueryFollowersEnabled) {
-        return;
-      }
-
-      // Skip auto-fetch if user is logged out
-      if (isUserLoggedIn === false) {
-        btn.textContent = '🔒';
-        btn.title = browserAPI.i18n.getMessage('loginRequired') || 'Login required. Click to learn more.';
-        btn.setAttribute('data-login-required', 'true');
-        followersVisibilityObserver.unobserve(btn);
-        return;
-      }
-
-      // User row entered viewport - start delay timer
-      if (!pendingFollowersVisibility.has(username) && !profileCache.has(username)) {
-        const timeoutId = setTimeout(() => {
-          // Still visible after delay? Queue the fetch
-          if (pendingFollowersVisibility.has(username)) {
-            pendingFollowersVisibility.delete(username);
-            // Add to followers fetch queue
-            queueFollowersFetch(username, btn);
-            followersVisibilityObserver.unobserve(btn);
-          }
-        }, VISIBILITY_DELAY_MS);
-        pendingFollowersVisibility.set(username, timeoutId);
-      }
-    } else {
-      // User row left viewport - cancel pending timer
-      if (pendingFollowersVisibility.has(username)) {
-        clearTimeout(pendingFollowersVisibility.get(username));
-        pendingFollowersVisibility.delete(username);
-      }
-    }
-  });
-}, { threshold: 0.1 });
-
-// Queue a follower for auto-fetch
 function queueFollowersFetch(username, btn) {
-  // Don't queue if already cached
-  if (profileCache.has(username)) return;
-
-  // Check if already in queue
-  const existingIndex = followersFetchQueue.findIndex(item => item.username === username);
-  if (existingIndex !== -1) {
-    return; // Already in queue
-  }
-
-  // Add to queue
-  followersFetchQueue.push({ username, btn });
-
-  // Trim queue if it exceeds max size
-  while (followersFetchQueue.length > MAX_QUEUE_SIZE) {
-    followersFetchQueue.shift(); // Remove oldest
-  }
-
-  // Start processing
-  processFollowersFetchQueue();
+  queueFetch(username, btn, followersFetchQueue, followersVisibilityObserver,
+    () => processFollowersFetchQueue(followersFetchQueue, state, profileCache, FETCH_DELAY_MS),
+    true, profileCache, MAX_QUEUE_SIZE);
 }
 
-// Process the followers fetch queue with throttling
-async function processFollowersFetchQueue() {
-  if (isFetchingFollowers || followersFetchQueue.length === 0) return;
+// Initialize IntersectionObservers using factory functions
+visibilityObserver = createFeedVisibilityObserver(
+  queueFeedFetch, pendingVisibility, profileCache, state, VISIBILITY_DELAY_MS
+);
 
-  // Check if auto-query followers is disabled
-  if (!autoQueryFollowersEnabled) {
-    return;
-  }
-
-  // Check if rate limited
-  if (Date.now() < rateLimitedUntil) {
-    return;
-  }
-
-  isFetchingFollowers = true;
-
-  while (followersFetchQueue.length > 0) {
-    // Stop processing if user is logged out
-    if (isUserLoggedIn === false) {
-      console.log('[Threads Extractor] User logged out. Stopping followers queue processing.');
-      followersFetchQueue.length = 0;
-      break;
-    }
-
-    // Check rate limit before each fetch
-    if (Date.now() < rateLimitedUntil) {
-      console.log('[Threads Extractor] Rate limit triggered. Stopping followers queue processing.');
-      break;
-    }
-
-    const { username, btn } = followersFetchQueue.shift();
-    console.log(`[Threads Extractor] Processing follower @${username}, queue length: ${followersFetchQueue.length}`);
-
-    // Skip if already fetched while in queue
-    if (profileCache.has(username)) {
-      const cached = profileCache.get(username);
-      // For followers, replace button with badge
-      if (cached.location) {
-        const badge = await createLocationBadge(cached);
-        btn.parentElement.replaceChild(badge, btn);
-      } else {
-        btn.textContent = '➖';
-        btn.title = 'No location available';
-        btn.disabled = true;
-        btn.style.cursor = 'default';
-        btn.style.opacity = '0.4';
-      }
-      continue;
-    }
-
-    btn.textContent = '⏳';
-
-    // Get the user ID from the button
-    const userId = btn.getAttribute('data-userid');
-    if (!userId) {
-      btn.textContent = '❓';
-      btn.title = 'User ID not found';
-      continue;
-    }
-
-    // Fetch profile info using shared utility
-    const profileInfo = await fetchProfileByUserId(userId);
-
-    // Update button with result using shared utility
-    await updateButtonWithFetchResult(btn, username, profileInfo, profileCache, createLocationBadge);
-
-    // Throttle: wait before next fetch
-    if (followersFetchQueue.length > 0) {
-      await new Promise(r => setTimeout(r, FETCH_DELAY_MS));
-    }
-  }
-
-  isFetchingFollowers = false;
-}
+followersVisibilityObserver = createFollowersVisibilityObserver(
+  queueFollowersFetch, pendingFollowersVisibility, profileCache, state, VISIBILITY_DELAY_MS
+);
 
 // Detect if we're on an activity page (replies, follows, etc.)
 function isActivityPage() {
@@ -981,16 +648,16 @@ function init() {
 
   // Enable auto-fetch after initial delay (wait for bulk-route-definitions to load)
   setTimeout(() => {
-    autoFetchReady = true;
+    state.autoFetchReady = true;
     console.log('[Threads Extractor] Auto-fetch enabled');
-    processFetchQueue(); // Process any queued items
+    processFetchQueue(fetchQueue, state, profileCache, FETCH_DELAY_MS); // Process any queued items
   }, INITIAL_DELAY_MS);
 }
 
 // Load auto-query settings from storage
 browserAPI.storage.local.get(['autoQueryEnabled', 'autoQueryFollowersEnabled']).then((result) => {
-  autoQueryEnabled = result.autoQueryEnabled !== false;
-  autoQueryFollowersEnabled = result.autoQueryFollowersEnabled === true; // Default off
+  state.autoQueryEnabled = result.autoQueryEnabled !== false;
+  state.autoQueryFollowersEnabled = result.autoQueryFollowersEnabled === true; // Default off
 });
 
 /**
@@ -1051,14 +718,14 @@ async function updateBadgesForFlagsChange() {
 // Listen for setting changes from popup
 browserAPI.runtime.onMessage.addListener((message) => {
   if (message.type === 'AUTO_QUERY_CHANGED') {
-    autoQueryEnabled = message.enabled;
-    console.log('[Threads Extractor] Auto-query', autoQueryEnabled ? 'enabled' : 'disabled');
-    if (autoQueryEnabled) {
-      processFetchQueue();
+    state.autoQueryEnabled = message.enabled;
+    console.log('[Threads Extractor] Auto-query', state.autoQueryEnabled ? 'enabled' : 'disabled');
+    if (state.autoQueryEnabled) {
+      processFetchQueue(fetchQueue, state, profileCache, FETCH_DELAY_MS);
     }
   } else if (message.type === 'AUTO_QUERY_FOLLOWERS_CHANGED') {
-    autoQueryFollowersEnabled = message.enabled;
-    console.log('[Threads Extractor] Auto-query followers', autoQueryFollowersEnabled ? 'enabled' : 'disabled');
+    state.autoQueryFollowersEnabled = message.enabled;
+    console.log('[Threads Extractor] Auto-query followers', state.autoQueryFollowersEnabled ? 'enabled' : 'disabled');
   } else if (message.type === 'SHOW_FLAGS_CHANGED') {
     console.log('[Threads Extractor] Show flags', message.enabled ? 'enabled' : 'disabled');
     // Update all existing badges on the page
